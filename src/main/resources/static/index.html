@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Crea un monitoraggio del prezzo medio delle carte Pokémon su CardTrader.">
+    <title>Card Monitor</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js" defer></script>
+    <script src="/js/app.js" defer></script>
+</head>
+<body>
+    <header class="site-header">
+        <a class="brand" href="/" data-view-link="dashboard" aria-label="Card Monitor, dashboard">
+            <span class="brand-mark" aria-hidden="true">CM</span>
+            <span>Card Monitor</span>
+        </a>
+        <nav id="authenticatedNavigation" class="main-nav" aria-label="Navigazione principale" hidden>
+            <button class="nav-link is-active" type="button" data-view-link="dashboard">Dashboard</button>
+            <button class="nav-link" type="button" data-view-link="wizard">Nuovo monitoraggio</button>
+        </nav>
+        <div id="userMenu" class="user-menu" hidden>
+            <span id="currentUsername"></span>
+            <button id="logoutButton" class="text-button" type="button">Esci</button>
+        </div>
+    </header>
+
+    <main class="page-shell">
+        <section id="authView" class="app-view auth-view" aria-labelledby="authTitle">
+            <div class="auth-card">
+                <p class="eyebrow">Area personale</p>
+                <h1 id="authTitle">Le tue carte, il loro andamento.</h1>
+                <p class="intro-copy">Accedi alla dashboard privata oppure crea un account in pochi secondi.</p>
+
+                <div class="auth-tabs" role="tablist" aria-label="Accesso o registrazione">
+                    <button id="showLoginButton" class="auth-tab is-active" type="button" role="tab" aria-selected="true">Accedi</button>
+                    <button id="showRegisterButton" class="auth-tab" type="button" role="tab" aria-selected="false">Registrati</button>
+                </div>
+
+                <div id="authStatus" class="status-message auth-status" role="status" aria-live="polite" hidden></div>
+
+                <form id="loginForm" class="auth-form">
+                    <div class="field-group">
+                        <label for="loginUsername">Username</label>
+                        <input id="loginUsername" name="username" type="text" autocomplete="username" required minlength="3" maxlength="50">
+                    </div>
+                    <div class="field-group">
+                        <label for="loginPassword">Password</label>
+                        <input id="loginPassword" name="password" type="password" autocomplete="current-password" required minlength="8" maxlength="72">
+                    </div>
+                    <button class="button button--primary" type="submit">Accedi</button>
+                </form>
+
+                <form id="registerForm" class="auth-form" hidden>
+                    <div class="field-group">
+                        <label for="registerUsername">Username</label>
+                        <input id="registerUsername" name="username" type="text" autocomplete="username" required minlength="3" maxlength="50" pattern="[A-Za-z0-9._-]+">
+                        <p class="field-help">Lettere, numeri, punto, trattino e underscore.</p>
+                    </div>
+                    <div class="field-group">
+                        <label for="registerPassword">Password</label>
+                        <input id="registerPassword" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="72">
+                    </div>
+                    <div class="field-group">
+                        <label for="registerPasswordConfirmation">Conferma password</label>
+                        <input id="registerPasswordConfirmation" type="password" autocomplete="new-password" required minlength="8" maxlength="72">
+                    </div>
+                    <button class="button button--primary" type="submit">Crea account</button>
+                </form>
+            </div>
+        </section>
+
+        <section id="dashboardView" class="app-view" aria-labelledby="dashboardTitle" hidden>
+            <header class="dashboard-header">
+                <div>
+                    <p class="eyebrow">Dashboard</p>
+                    <h1 id="dashboardTitle">I tuoi monitoraggi.</h1>
+                    <p class="intro-copy">
+                        Ogni prezzo è la media di massimo cinque offerte compatibili, partendo dalle più economiche.
+                    </p>
+                </div>
+                <button id="newMonitoringButton" class="button button--primary" type="button">
+                    Nuovo monitoraggio
+                </button>
+            </header>
+
+            <div id="dashboardStatus" class="status-message dashboard-status" role="status" aria-live="polite" hidden></div>
+
+            <section id="dashboardLoading" class="dashboard-loading" aria-label="Caricamento monitoraggi">
+                <span class="loading-dot" aria-hidden="true"></span>
+                <p>Caricamento dei monitoraggi…</p>
+            </section>
+
+            <section id="dashboardEmpty" class="empty-dashboard" aria-labelledby="emptyDashboardTitle" hidden>
+                <span class="empty-dashboard-mark" aria-hidden="true">＋</span>
+                <h2 id="emptyDashboardTitle">Nessuna carta monitorata.</h2>
+                <p>Crea il primo monitoraggio: la rilevazione iniziale partirà subito.</p>
+                <button class="button button--primary" type="button" data-view-link="wizard">
+                    Crea il primo monitoraggio
+                </button>
+            </section>
+
+            <section id="monitoringGrid" class="monitoring-grid" aria-label="Monitoraggi attivi" hidden></section>
+        </section>
+
+        <section id="detailView" class="app-view detail-view" aria-labelledby="detailTitle" hidden>
+            <button id="backToDashboardButton" class="back-link" type="button">← Torna alla dashboard</button>
+
+            <header class="detail-header">
+                <div>
+                    <p id="detailExpansion" class="eyebrow"></p>
+                    <h1 id="detailTitle" tabindex="-1">Dettaglio monitoraggio</h1>
+                    <p id="detailVersion" class="intro-copy"></p>
+                </div>
+                <div class="detail-actions">
+                    <button id="detailRefreshButton" class="button button--primary" type="button">Aggiorna ora</button>
+                    <button id="detailDeactivateButton" class="button button--danger" type="button">Disattiva</button>
+                </div>
+            </header>
+
+            <div id="detailStatus" class="status-message dashboard-status" role="status" aria-live="polite" hidden></div>
+
+            <section class="metric-grid" aria-label="Ultima rilevazione">
+                <article class="metric-card metric-card--featured">
+                    <span>Ultimo prezzo medio</span>
+                    <strong id="detailLatestPrice">—</strong>
+                    <small id="detailPriceSample">Nessuna rilevazione</small>
+                </article>
+                <article class="metric-card">
+                    <span>Attendibilità</span>
+                    <strong id="detailConfidence">—</strong>
+                    <small>Basata sul campione utilizzato</small>
+                </article>
+                <article class="metric-card">
+                    <span>Ultimo aggiornamento</span>
+                    <strong id="detailLastChecked">—</strong>
+                    <small id="detailCurrency">Valuta —</small>
+                </article>
+            </section>
+
+            <section id="detailErrorPanel" class="monitoring-error" hidden>
+                <strong>Ultimo aggiornamento non riuscito</strong>
+                <span id="detailErrorText"></span>
+            </section>
+
+            <div class="detail-layout">
+                <section class="chart-card" aria-labelledby="chartTitle">
+                    <div class="section-heading">
+                        <div>
+                            <p class="eyebrow">Andamento</p>
+                            <h2 id="chartTitle">Prezzo nel tempo</h2>
+                        </div>
+                        <span id="observationCount" class="count-badge">0 rilevazioni</span>
+                    </div>
+                    <p class="chart-explanation">
+                        Media delle offerte compatibili più economiche, con un campione massimo di cinque inserzioni attive.
+                    </p>
+                    <div id="chartContainer" class="chart-container">
+                        <canvas id="priceChart" aria-label="Grafico del prezzo medio nel tempo" role="img"></canvas>
+                    </div>
+                    <div id="chartEmpty" class="chart-empty" hidden>
+                        Non ci sono ancora rilevazioni con un prezzo disponibile.
+                    </div>
+                </section>
+
+                <aside class="criteria-card" aria-labelledby="criteriaTitle">
+                    <p class="eyebrow">Filtri esatti</p>
+                    <h2 id="criteriaTitle">Criteri del monitoraggio</h2>
+                    <dl class="criteria-list">
+                        <div><dt>Set</dt><dd id="criteriaExpansion">—</dd></div>
+                        <div><dt>Carta</dt><dd id="criteriaCard">—</dd></div>
+                        <div><dt>Lingua</dt><dd id="criteriaLanguage">—</dd></div>
+                        <div><dt>Condizione</dt><dd id="criteriaCondition">—</dd></div>
+                        <div><dt>Variante</dt><dd id="criteriaVariants">—</dd></div>
+                    </dl>
+                </aside>
+            </div>
+        </section>
+
+        <section id="wizardView" class="app-view wizard-view" aria-labelledby="page-title" hidden>
+        <section class="intro" aria-labelledby="page-title">
+            <p class="eyebrow">Nuovo monitoraggio</p>
+            <h1 id="page-title">Segui il prezzo della carta che ti interessa.</h1>
+            <p class="intro-copy">
+                Configura carta e condizioni, calcola il prezzo medio sulle offerte compatibili e decidi
+                successivamente se attivare il monitoraggio.
+            </p>
+        </section>
+
+        <section class="wizard-card" aria-label="Creazione monitoraggio">
+            <ol class="stepper" aria-label="Avanzamento configurazione">
+                <li class="stepper-item is-active" data-step-indicator="1">
+                    <span class="step-number">1</span><span class="step-label">Set</span>
+                </li>
+                <li class="stepper-item" data-step-indicator="2">
+                    <span class="step-number">2</span><span class="step-label">Carta</span>
+                </li>
+                <li class="stepper-item" data-step-indicator="3">
+                    <span class="step-number">3</span><span class="step-label">Lingua</span>
+                </li>
+                <li class="stepper-item" data-step-indicator="4">
+                    <span class="step-number">4</span><span class="step-label">Condizione</span>
+                </li>
+                <li class="stepper-item" data-step-indicator="5">
+                    <span class="step-number">5</span><span class="step-label">Variante</span>
+                </li>
+                <li class="stepper-item" data-step-indicator="6">
+                    <span class="step-number">6</span><span class="step-label">Conferma</span>
+                </li>
+            </ol>
+
+            <div id="globalStatus" class="status-message" role="status" aria-live="polite" hidden></div>
+
+            <form id="monitoringWizard" novalidate>
+                <section class="wizard-step is-visible" data-step="1" aria-labelledby="step-1-title">
+                    <p class="step-kicker">Passaggio 1 di 6</p>
+                    <h2 id="step-1-title">Scegli il set</h2>
+                    <p class="step-description">Base Set, Base Set 2 e Base Set Shadowless rimangono set distinti.</p>
+
+                    <div class="field-group">
+                        <label for="expansionSelect">Espansione Pokémon</label>
+                        <div class="select-wrap">
+                            <select id="expansionSelect" name="expansionId" disabled required>
+                                <option value="">Caricamento dei set…</option>
+                            </select>
+                        </div>
+                        <p id="expansionHelp" class="field-help">I set vengono caricati direttamente da CardTrader.</p>
+                    </div>
+                    <button id="retryExpansionsButton" class="text-button" type="button" hidden>
+                        Riprova il caricamento
+                    </button>
+                </section>
+
+                <section class="wizard-step" data-step="2" aria-labelledby="step-2-title" hidden>
+                    <p class="step-kicker">Passaggio 2 di 6</p>
+                    <h2 id="step-2-title">Scegli la carta</h2>
+                    <p class="step-description">Nome e versione identificano il blueprint corretto nel set selezionato.</p>
+
+                    <div class="field-group">
+                        <label for="blueprintSelect">Carta</label>
+                        <div class="select-wrap">
+                            <select id="blueprintSelect" name="blueprintId" disabled required>
+                                <option value="">Seleziona prima un set</option>
+                            </select>
+                        </div>
+                        <p id="blueprintHelp" class="field-help">La versione include rarità e numero della carta, quando disponibili.</p>
+                    </div>
+                    <button id="retryBlueprintsButton" class="text-button" type="button" hidden>
+                        Riprova il caricamento
+                    </button>
+                </section>
+
+                <section class="wizard-step" data-step="3" aria-labelledby="step-3-title" hidden>
+                    <p class="step-kicker">Passaggio 3 di 6</p>
+                    <h2 id="step-3-title">Scegli la lingua</h2>
+                    <p class="step-description">Saranno considerate soltanto offerte nella lingua indicata.</p>
+
+                    <div class="field-group field-group--compact">
+                        <label for="languageSelect">Lingua della carta</label>
+                        <div class="select-wrap">
+                            <select id="languageSelect" name="language" required>
+                                <option value="">Seleziona una lingua</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="wizard-step" data-step="4" aria-labelledby="step-4-title" hidden>
+                    <p class="step-kicker">Passaggio 4 di 6</p>
+                    <h2 id="step-4-title">Scegli la condizione</h2>
+                    <p class="step-description">Il confronto è esatto: condizioni diverse non entrano nel calcolo.</p>
+
+                    <fieldset class="choice-grid" id="conditionChoices">
+                        <legend class="sr-only">Condizione della carta</legend>
+                    </fieldset>
+                </section>
+
+                <section class="wizard-step" data-step="5" aria-labelledby="step-5-title" hidden>
+                    <p class="step-kicker">Passaggio 5 di 6</p>
+                    <h2 id="step-5-title">Definisci la variante</h2>
+                    <p class="step-description">Lascia tutti gli interruttori disattivati per una copia standard.</p>
+
+                    <div class="variant-list">
+                        <label class="switch-row" for="firstEditionInput">
+                            <span><strong>Prima edizione</strong><small>Logo First Edition sulla carta</small></span>
+                            <input id="firstEditionInput" name="firstEdition" type="checkbox">
+                            <span class="switch" aria-hidden="true"></span>
+                        </label>
+                        <label class="switch-row" for="reverseInput">
+                            <span><strong>Reverse</strong><small>Proprietà CardTrader: pokemon_reverse</small></span>
+                            <input id="reverseInput" name="reverse" type="checkbox">
+                            <span class="switch" aria-hidden="true"></span>
+                        </label>
+                        <label class="switch-row" for="gradedInput">
+                            <span><strong>Gradata</strong><small>Carta certificata da un ente di grading</small></span>
+                            <input id="gradedInput" name="graded" type="checkbox">
+                            <span class="switch" aria-hidden="true"></span>
+                        </label>
+                        <label class="switch-row" for="signedInput">
+                            <span><strong>Firmata</strong><small>Carta con firma</small></span>
+                            <input id="signedInput" name="signed" type="checkbox">
+                            <span class="switch" aria-hidden="true"></span>
+                        </label>
+                        <label class="switch-row" for="alteredInput">
+                            <span><strong>Alterata</strong><small>Carta modificata artisticamente</small></span>
+                            <input id="alteredInput" name="altered" type="checkbox">
+                            <span class="switch" aria-hidden="true"></span>
+                        </label>
+                    </div>
+
+                    <aside class="info-note">
+                        <strong>Nota su Shadowless</strong>
+                        <span>CardTrader lo gestisce come un set distinto: seleziona “Base Set Shadowless” al primo passaggio.</span>
+                    </aside>
+                </section>
+
+                <section class="wizard-step" data-step="6" aria-labelledby="step-6-title" hidden>
+                    <p class="step-kicker">Passaggio 6 di 6</p>
+                    <h2 id="step-6-title" tabindex="-1">Controlla e calcola</h2>
+                    <p class="step-description">Il calcolo non attiva né salva ancora alcun monitoraggio.</p>
+
+                    <dl class="summary-list">
+                        <div><dt>Set</dt><dd id="summaryExpansion">—</dd></div>
+                        <div><dt>Carta</dt><dd id="summaryBlueprint">—</dd></div>
+                        <div><dt>Lingua</dt><dd id="summaryLanguage">—</dd></div>
+                        <div><dt>Condizione</dt><dd id="summaryCondition">—</dd></div>
+                        <div><dt>Variante</dt><dd id="summaryVariants">Standard</dd></div>
+                    </dl>
+
+                    <div class="confirmation-note">
+                        <span class="confirmation-icon" aria-hidden="true">✓</span>
+                        <p>Vedrai media, intervallo, attendibilità e inserzioni utilizzate prima di decidere.</p>
+                    </div>
+                </section>
+
+                <footer class="wizard-actions">
+                    <button id="backButton" class="button button--secondary" type="button" hidden>Indietro</button>
+                    <button id="nextButton" class="button button--primary" type="button" disabled>Continua</button>
+                    <button id="confirmButton" class="button button--primary" type="submit" hidden>
+                        Calcola prezzo medio
+                    </button>
+                </footer>
+            </form>
+
+            <section id="calculationPanel" class="calculation-panel" aria-labelledby="calculationTitle" hidden>
+                <p class="step-kicker">Calcolo completato</p>
+                <h2 id="calculationTitle" tabindex="-1">Ecco il prezzo medio attuale.</h2>
+                <p id="calculationCard" class="success-card-name"></p>
+
+                <div id="calculationStatus" class="status-message calculation-status" role="status" aria-live="polite" hidden></div>
+
+                <div id="calculationPriceResult" class="calculation-result">
+                    <div class="price-result calculation-price">
+                        <span class="price-label">Prezzo medio</span>
+                        <strong id="calculationAveragePrice">—</strong>
+                        <span id="calculationSampleInfo" class="price-meta"></span>
+                    </div>
+                    <dl class="calculation-metrics">
+                        <div><dt>Intervallo utilizzato</dt><dd id="calculationRange">—</dd></div>
+                        <div><dt>Attendibilità</dt><dd id="calculationConfidence">—</dd></div>
+                        <div><dt>Fonte</dt><dd>CardTrader · inserzioni attive</dd></div>
+                        <div><dt>Calcolato il</dt><dd id="calculationTime">—</dd></div>
+                    </dl>
+                    <div class="used-offers">
+                        <h3>Inserzioni utilizzate</h3>
+                        <p>Le massimo cinque offerte compatibili più economiche, ordinate per prezzo.</p>
+                        <ol id="calculationOffers"></ol>
+                    </div>
+                </div>
+
+                <div id="calculationNoOffers" class="empty-result calculation-empty" hidden>
+                    <strong>Nessuna offerta compatibile al momento.</strong>
+                    <span>Puoi comunque attivare il monitoraggio per cercare nuove offerte nelle rilevazioni future.</span>
+                </div>
+
+                <p class="activation-note">
+                    All’attivazione CardTrader verrà interrogato nuovamente e il risultato aggiornato diventerà la prima rilevazione.
+                </p>
+                <div class="calculation-actions">
+                    <button id="editCalculationButton" class="button button--secondary" type="button">Modifica criteri</button>
+                    <button id="activateMonitoringButton" class="button button--primary" type="button">Attiva monitoraggio</button>
+                </div>
+            </section>
+
+            <section id="successPanel" class="success-panel" aria-labelledby="successTitle" hidden>
+                <span class="success-mark" aria-hidden="true">✓</span>
+                <p class="step-kicker">Monitoraggio attivato</p>
+                <h2 id="successTitle" tabindex="-1">La prima rilevazione è pronta.</h2>
+                <p id="successCard" class="success-card-name"></p>
+                <div id="priceResult" class="price-result">
+                    <span class="price-label">Prezzo medio</span>
+                    <strong id="averagePrice">—</strong>
+                    <span id="sampleInfo" class="price-meta"></span>
+                </div>
+                <div id="noOffersResult" class="empty-result" hidden>
+                    <strong>Nessuna offerta compatibile al momento.</strong>
+                    <span>Il monitoraggio è comunque attivo e potrà trovare nuove offerte alle prossime rilevazioni.</span>
+                </div>
+                <button id="createAnotherButton" class="button button--secondary" type="button">
+                    Crea un altro monitoraggio
+                </button>
+                <button id="goToDashboardButton" class="button button--primary" type="button">
+                    Vai alla dashboard
+                </button>
+            </section>
+        </section>
+        </section>
+
+        <noscript>
+            <p class="noscript-message">Per utilizzare Card Monitor è necessario abilitare JavaScript.</p>
+        </noscript>
+    </main>
+</body>
+</html>

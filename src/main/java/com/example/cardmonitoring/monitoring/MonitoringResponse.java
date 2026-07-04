@@ -1,0 +1,48 @@
+package com.example.cardmonitoring.monitoring;
+
+import java.time.Instant;
+
+public record MonitoringResponse(
+		long id,
+		long blueprintId,
+		long expansionId,
+		String cardName,
+		String cardVersion,
+		String expansionName,
+		String expansionCode,
+		String language,
+		String condition,
+		boolean firstEdition,
+		boolean reverse,
+		boolean graded,
+		boolean signed,
+		boolean altered,
+		boolean active,
+		String currency,
+		Instant createdAt,
+		Instant lastCheckedAt,
+		String lastError) {
+
+	static MonitoringResponse from(Monitoring monitoring) {
+		return new MonitoringResponse(
+				monitoring.getId(),
+				monitoring.getBlueprintId(),
+				monitoring.getExpansionId(),
+				monitoring.getCardName(),
+				monitoring.getCardVersion(),
+				monitoring.getExpansionName(),
+				monitoring.getExpansionCode(),
+				monitoring.getLanguage(),
+				monitoring.getCondition(),
+				monitoring.isFirstEdition(),
+				monitoring.isReverse(),
+				monitoring.isGraded(),
+				monitoring.isSigned(),
+				monitoring.isAltered(),
+				monitoring.isActive(),
+				monitoring.getCurrency(),
+				monitoring.getCreatedAt(),
+				monitoring.getLastCheckedAt(),
+				monitoring.getLastError());
+	}
+}
