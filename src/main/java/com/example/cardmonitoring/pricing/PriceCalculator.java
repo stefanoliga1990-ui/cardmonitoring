@@ -15,7 +15,7 @@ import com.example.cardmonitoring.cardtrader.PokemonCardProperties;
 @Component
 public class PriceCalculator {
 
-	private static final int MAXIMUM_SAMPLE_SIZE = 5;
+	private static final int MAXIMUM_SAMPLE_SIZE = 4;
 	private static final int AVERAGE_SCALE_IN_CENTS = 2;
 	private static final Comparator<CardTraderMarketplaceOffer> PRICE_ORDER = Comparator
 			.comparingLong((CardTraderMarketplaceOffer offer) -> offer.price().cents())
@@ -94,10 +94,10 @@ public class PriceCalculator {
 	}
 
 	private static ConfidenceLevel confidenceFor(int usedOffers) {
-		if (usedOffers >= 5) {
+		if (usedOffers >= MAXIMUM_SAMPLE_SIZE) {
 			return ConfidenceLevel.HIGH;
 		}
-		if (usedOffers >= 3) {
+		if (usedOffers >= 2) {
 			return ConfidenceLevel.MEDIUM;
 		}
 		return ConfidenceLevel.LOW;

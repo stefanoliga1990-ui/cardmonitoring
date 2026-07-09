@@ -120,7 +120,7 @@ public class PriceObservation {
 		Objects.requireNonNull(result.confidence(), "result confidence is required");
 		if (result.compatibleOffers() < 0
 				|| result.usedOffers() < 0
-				|| result.usedOffers() > 5
+				|| result.usedOffers() > 4
 				|| result.usedOffers() > result.compatibleOffers()) {
 			throw new IllegalArgumentException("result offer counts are invalid");
 		}

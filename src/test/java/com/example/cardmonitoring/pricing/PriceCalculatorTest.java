@@ -51,7 +51,7 @@ class PriceCalculatorTest {
 	}
 
 	@Test
-	void sortsOffersAndUsesOnlyFiveCheapest() {
+	void sortsOffersAndUsesOnlyFourCheapest() {
 		PriceCalculationResult result = calculator.calculate(CRITERIA, List.of(
 				offer(1, 500).build(),
 				offer(2, 100).build(),
@@ -61,17 +61,17 @@ class PriceCalculatorTest {
 				offer(6, 50).build()));
 
 		assertThat(result.compatibleOffers()).isEqualTo(6);
-		assertThat(result.usedOffers()).isEqualTo(5);
+		assertThat(result.usedOffers()).isEqualTo(4);
 		assertThat(result.minimumPriceCents()).isEqualTo(50);
-		assertThat(result.maximumPriceCents()).isEqualTo(400);
-		assertThat(result.averagePriceCents()).isEqualByComparingTo("210.00");
+		assertThat(result.maximumPriceCents()).isEqualTo(300);
+		assertThat(result.averagePriceCents()).isEqualByComparingTo("162.50");
 		assertThat(result.confidence()).isEqualTo(ConfidenceLevel.HIGH);
 		assertThat(result.offersUsed())
 				.extracting(UsedMarketplaceOffer::offerId)
-				.containsExactly(6L, 2L, 4L, 3L, 5L);
+				.containsExactly(6L, 2L, 4L, 3L);
 		assertThat(result.offersUsed())
 				.extracting(UsedMarketplaceOffer::priceCents)
-				.containsExactly(50L, 100L, 200L, 300L, 400L);
+				.containsExactly(50L, 100L, 200L, 300L);
 	}
 
 	@Test
@@ -142,9 +142,9 @@ class PriceCalculatorTest {
 	private static Stream<Arguments> confidenceCases() {
 		return Stream.of(
 				Arguments.of(1, ConfidenceLevel.LOW),
-				Arguments.of(2, ConfidenceLevel.LOW),
+				Arguments.of(2, ConfidenceLevel.MEDIUM),
 				Arguments.of(3, ConfidenceLevel.MEDIUM),
-				Arguments.of(4, ConfidenceLevel.MEDIUM),
+				Arguments.of(4, ConfidenceLevel.HIGH),
 				Arguments.of(5, ConfidenceLevel.HIGH));
 	}
 
