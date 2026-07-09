@@ -44,7 +44,9 @@ class MonitoringPersistenceTest {
 	void persistsMonitoringAndAggregateObservation() {
 		Instant checkedAt = Instant.parse("2026-07-03T08:00:00Z");
 		Monitoring monitoring = new Monitoring(
-				createUser("ash"), "Charizard", "Holo Rare | 4/102", "Base Set", "bs", CRITERIA, "EUR");
+				createUser("ash"), "Charizard", "Holo Rare | 4/102", "Base Set", "bs",
+				"https://images.test/small.png", "https://images.test/large.png", "POKEMON_TCG_API",
+				CRITERIA, "EUR");
 		monitoring.recordSuccessfulCheck(checkedAt);
 		monitoring = monitoringRepository.saveAndFlush(monitoring);
 
@@ -62,6 +64,9 @@ class MonitoringPersistenceTest {
 		assertThat(reloaded.getExpansionId()).isEqualTo(1472);
 		assertThat(reloaded.getCardName()).isEqualTo("Charizard");
 		assertThat(reloaded.getCardVersion()).isEqualTo("Holo Rare | 4/102");
+		assertThat(reloaded.getImageUrlSmall()).isEqualTo("https://images.test/small.png");
+		assertThat(reloaded.getImageUrlLarge()).isEqualTo("https://images.test/large.png");
+		assertThat(reloaded.getImageSource()).isEqualTo("POKEMON_TCG_API");
 		assertThat(reloaded.getLanguage()).isEqualTo("it");
 		assertThat(reloaded.getCondition()).isEqualTo("Near Mint");
 		assertThat(reloaded.isFirstEdition()).isFalse();
@@ -91,7 +96,8 @@ class MonitoringPersistenceTest {
 	@Test
 	void persistsNoDataObservationWithoutPrices() {
 		Monitoring monitoring = monitoringRepository.saveAndFlush(new Monitoring(
-				createUser("misty"), "Charizard", "Holo Rare | 4/102", "Base Set", "bs", CRITERIA, "EUR"));
+				createUser("misty"), "Charizard", "Holo Rare | 4/102", "Base Set", "bs",
+				null, null, null, CRITERIA, "EUR"));
 		PriceCalculationResult result = new PriceCalculationResult(
 				"EUR", null, null, null, 0, 0, ConfidenceLevel.NO_DATA);
 
@@ -111,7 +117,8 @@ class MonitoringPersistenceTest {
 	@Test
 	void persistsInactiveStateAndSafeLengthLastError() {
 		Monitoring monitoring = new Monitoring(
-				createUser("brock"), "Charizard", "Holo Rare | 4/102", "Base Set", "bs", CRITERIA, "EUR");
+				createUser("brock"), "Charizard", "Holo Rare | 4/102", "Base Set", "bs",
+				null, null, null, CRITERIA, "EUR");
 		Instant checkedAt = Instant.parse("2026-07-03T10:00:00Z");
 		monitoring.recordFailedCheck(checkedAt, "x".repeat(1200));
 		monitoring.deactivate();

@@ -42,6 +42,9 @@ public class MonitoringPersistenceService {
 				card.cardVersion(),
 				card.expansionName(),
 				card.expansionCode(),
+				card.imageUrlSmall(),
+				card.imageUrlLarge(),
+				card.imageSource(),
 				criteria,
 				currency);
 		monitoring.recordSuccessfulCheck(observedAt);
@@ -146,7 +149,10 @@ public class MonitoringPersistenceService {
 			String cardName,
 			String cardVersion,
 			String expansionName,
-			String expansionCode) {
+			String expansionCode,
+			String imageUrlSmall,
+			String imageUrlLarge,
+			String imageSource) {
 	}
 
 	public record RefreshTarget(long monitoringId, PriceCriteria criteria) {

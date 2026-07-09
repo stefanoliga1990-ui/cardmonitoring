@@ -75,6 +75,11 @@
         submitting: false
     };
 
+    const ROUTES = {
+        dashboard: "#dashboard",
+        wizard: "#wizard"
+    };
+
     const elements = {
         authView: document.querySelector("#authView"),
         authenticatedNavigation: document.querySelector("#authenticatedNavigation"),
@@ -103,6 +108,7 @@
         calculationPanel: document.querySelector("#calculationPanel"),
         calculationStatus: document.querySelector("#calculationStatus"),
         calculationCard: document.querySelector("#calculationCard"),
+        calculationImage: document.querySelector("#calculationImage"),
         calculationPriceResult: document.querySelector("#calculationPriceResult"),
         calculationNoOffers: document.querySelector("#calculationNoOffers"),
         calculationAveragePrice: document.querySelector("#calculationAveragePrice"),
@@ -115,6 +121,7 @@
         activateMonitoring: document.querySelector("#activateMonitoringButton"),
         successPanel: document.querySelector("#successPanel"),
         successCard: document.querySelector("#successCard"),
+        successImage: document.querySelector("#successImage"),
         priceResult: document.querySelector("#priceResult"),
         noOffersResult: document.querySelector("#noOffersResult"),
         averagePrice: document.querySelector("#averagePrice"),
@@ -132,7 +139,11 @@
         newMonitoring: document.querySelector("#newMonitoringButton"),
         backToDashboard: document.querySelector("#backToDashboardButton"),
         detailRefresh: document.querySelector("#detailRefreshButton"),
-        detailDeactivate: document.querySelector("#detailDeactivateButton")
+        detailDeactivate: document.querySelector("#detailDeactivateButton"),
+        detailImage: document.querySelector("#detailImage"),
+        loadingOverlay: document.querySelector("#loadingOverlay"),
+        loadingOverlayTitle: document.querySelector("#loadingOverlayTitle"),
+        loadingOverlayMessage: document.querySelector("#loadingOverlayMessage")
     };
 
     initialize();
@@ -190,6 +201,16 @@
         elements.detailRefresh.addEventListener("click", () => refreshMonitoring(dashboardState.selectedMonitoringId, true));
         elements.detailDeactivate.addEventListener("click", () => deactivateMonitoring(dashboardState.selectedMonitoringId));
         elements.monitoringGrid.addEventListener("click", handleMonitoringGridClick);
+        window.addEventListener("popstate", () => {
+            if (authState.user !== null) {
+                showCurrentRoute();
+            }
+        });
+        window.addEventListener("hashchange", () => {
+            if (authState.user !== null) {
+                showCurrentRoute();
+            }
+        });
         document.querySelectorAll("[data-view-link]").forEach((link) => {
             link.addEventListener("click", (event) => {
                 event.preventDefault();
@@ -204,7 +225,6 @@
     }
 
     async function initializeSession() {
-        setActiveView("auth");
         try {
             await refreshCsrfToken();
             const user = await requestJson("/api/auth/me");
@@ -284,7 +304,7 @@
         elements.registerForm.reset();
         clearPanelStatus(elements.authStatus);
         await refreshCsrfToken();
-        await showDashboard();
+        await showCurrentRoute();
     }
 
     function switchAuthMode(mode) {
@@ -611,6 +631,9 @@
         state.submitting = true;
         elements.confirm.textContent = "Calcolo in corso…";
         setStatus("Stiamo verificando le offerte compatibili su CardTrader.", "info");
+        showLoadingOverlay(
+            "Calcolo prezzo medio",
+            "Interroghiamo CardTrader e cerchiamo l'immagine della carta. Potrebbe richiedere qualche secondo.");
         updateActions();
 
         try {
@@ -627,6 +650,7 @@
         finally {
             state.submitting = false;
             elements.confirm.textContent = "Calcola prezzo medio";
+            hideLoadingOverlay();
             updateActions();
         }
     }
@@ -650,6 +674,7 @@
         clearPanelStatus(elements.calculationStatus);
         elements.calculationPanel.hidden = false;
         elements.calculationCard.textContent = `${calculation.cardName} · ${calculation.cardVersion}`;
+        renderCardImage(elements.calculationImage, calculation, "large");
         elements.calculationTime.textContent = formatDateTime(calculation.calculatedAt);
         elements.calculationConfidence.textContent = confidenceLabel(calculation.confidence);
 
@@ -702,6 +727,9 @@
         elements.editCalculation.disabled = true;
         elements.activateMonitoring.disabled = true;
         elements.activateMonitoring.textContent = "Attivazione…";
+        showLoadingOverlay(
+            "Attivazione monitoraggio",
+            "Ricalcoliamo il prezzo, recuperiamo l'immagine e salviamo la prima rilevazione.");
         setPanelStatus(
             elements.calculationStatus,
             "Nuova verifica delle offerte e attivazione del monitoraggio in corso…",
@@ -726,7 +754,20 @@
             elements.editCalculation.disabled = false;
             elements.activateMonitoring.disabled = false;
             elements.activateMonitoring.textContent = "Attiva monitoraggio";
+            hideLoadingOverlay();
         }
+    }
+
+    function showLoadingOverlay(title, message) {
+        elements.loadingOverlayTitle.textContent = title;
+        elements.loadingOverlayMessage.textContent = message;
+        elements.loadingOverlay.hidden = false;
+        document.body.classList.add("is-loading-overlay-visible");
+    }
+
+    function hideLoadingOverlay() {
+        elements.loadingOverlay.hidden = true;
+        document.body.classList.remove("is-loading-overlay-visible");
     }
 
     function showSuccess(created) {
@@ -738,6 +779,8 @@
         clearStatus();
         elements.successPanel.hidden = false;
         elements.successCard.textContent = `${monitoring.cardName} · ${monitoring.cardVersion}`;
+
+        renderCardImage(elements.successImage, monitoring, "large");
 
         const hasOffers = observation.confidence !== "NO_DATA" && observation.averagePriceCents !== null;
         elements.priceResult.hidden = !hasOffers;
@@ -791,19 +834,59 @@
         elements.expansionSelect.focus();
     }
 
-    async function showDashboard() {
+    async function showCurrentRoute() {
+        const route = currentRoute();
+        if (route.view === "detail") {
+            await showDetail(route.monitoringId, false);
+            return;
+        }
+        if (route.view === "wizard") {
+            showWizard(false);
+            return;
+        }
+        await showDashboard(false);
+    }
+
+    function currentRoute() {
+        const hash = window.location.hash || ROUTES.dashboard;
+        const detailMatch = hash.match(/^#monitoring\/(\d+)$/);
+        if (detailMatch) {
+            return {
+                view: "detail",
+                monitoringId: Number(detailMatch[1])
+            };
+        }
+        if (hash === ROUTES.wizard) {
+            return { view: "wizard" };
+        }
+        return { view: "dashboard" };
+    }
+
+    function updateRoute(hash) {
+        if (window.location.hash !== hash) {
+            window.history.pushState(null, "", hash);
+        }
+    }
+
+    async function showDashboard(updateHash = true) {
         if (authState.user === null) {
             showAuth();
             return;
+        }
+        if (updateHash) {
+            updateRoute(ROUTES.dashboard);
         }
         setActiveView("dashboard");
         await loadDashboard();
     }
 
-    function showWizard() {
+    function showWizard(updateHash = true) {
         if (authState.user === null) {
             showAuth();
             return;
+        }
+        if (updateHash) {
+            updateRoute(ROUTES.wizard);
         }
         setActiveView("wizard");
         if (!elements.successPanel.hidden || !elements.calculationPanel.hidden) {
@@ -882,6 +965,8 @@
         card.dataset.monitoringId = String(monitoring.id);
 
         const header = createElement("header", "monitoring-card-header");
+        const image = createElement("div", "card-image-preview monitoring-card-image");
+        renderCardImage(image, monitoring, "small");
         const identity = document.createElement("div");
         identity.append(
             createElement("p", "monitoring-set", `${monitoring.expansionName} · ${monitoring.expansionCode}`),
@@ -890,7 +975,7 @@
         );
         const confidence = createElement("span", "confidence-badge", confidenceLabel(latest && latest.confidence));
         confidence.dataset.confidence = latest ? latest.confidence : "NO_DATA";
-        header.append(identity, confidence);
+        header.append(image, identity, confidence);
 
         const priceRow = createElement("div", "monitoring-price-row");
         const price = createElement("div", "monitoring-price");
@@ -964,8 +1049,11 @@
         }
     }
 
-    async function showDetail(monitoringId) {
+    async function showDetail(monitoringId, updateHash = true) {
         dashboardState.selectedMonitoringId = monitoringId;
+        if (updateHash) {
+            updateRoute(`#monitoring/${monitoringId}`);
+        }
         setActiveView("detail");
         elements.detailRefresh.disabled = true;
         elements.detailDeactivate.disabled = true;
@@ -993,6 +1081,7 @@
         document.querySelector("#detailExpansion").textContent = `${monitoring.expansionName} · ${monitoring.expansionCode}`;
         document.querySelector("#detailTitle").textContent = monitoring.cardName;
         document.querySelector("#detailVersion").textContent = monitoring.cardVersion;
+        renderCardImage(elements.detailImage, monitoring, "large");
         document.querySelector("#detailLatestPrice").textContent = observationPrice(latest, monitoring.currency);
         document.querySelector("#detailPriceSample").textContent = latest && latest.usedOffers > 0
             ? `${usedOffersLabel(latest.usedOffers)} su ${compatibleOffersLabel(latest.compatibleOffers)}`
@@ -1233,6 +1322,45 @@
             element.textContent = text;
         }
         return element;
+    }
+
+    function renderCardImage(container, card, preferredSize = "small") {
+        if (!container) {
+            return;
+        }
+        container.replaceChildren();
+        const imageUrl = preferredSize === "large"
+            ? card.imageUrlLarge || card.imageUrlSmall
+            : card.imageUrlSmall || card.imageUrlLarge;
+        if (imageUrl) {
+            const image = document.createElement("img");
+            image.src = imageUrl;
+            image.alt = `${card.cardName} ${card.cardVersion || ""}`.trim();
+            image.loading = "lazy";
+            image.decoding = "async";
+            image.addEventListener("error", () => renderCardImagePlaceholder(container, card), { once: true });
+            container.classList.remove("is-placeholder");
+            container.append(image);
+            return;
+        }
+
+        renderCardImagePlaceholder(container, card);
+    }
+
+    function renderCardImagePlaceholder(container, card) {
+        container.replaceChildren();
+        const initials = (card.cardName || "?")
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((part) => part.charAt(0))
+            .join("")
+            .toUpperCase();
+        container.classList.add("is-placeholder");
+        container.append(
+            createElement("span", "card-image-placeholder-mark", initials || "?"),
+            createElement("small", "", "Immagine non disponibile")
+        );
     }
 
     function setDashboardStatus(message, type) {

@@ -26,7 +26,7 @@
     </header>
 
     <main class="page-shell">
-        <section id="authView" class="app-view auth-view" aria-labelledby="authTitle">
+        <section id="authView" class="app-view auth-view" aria-labelledby="authTitle" hidden>
             <div class="auth-card">
                 <p class="eyebrow">Area personale</p>
                 <h1 id="authTitle">Le tue carte, il loro andamento.</h1>
@@ -107,6 +107,7 @@
             <button id="backToDashboardButton" class="back-link" type="button">← Torna alla dashboard</button>
 
             <header class="detail-header">
+                <div id="detailImage" class="card-image-preview detail-card-image" aria-label="Immagine della carta monitorata"></div>
                 <div>
                     <p id="detailExpansion" class="eyebrow"></p>
                     <h1 id="detailTitle" tabindex="-1">Dettaglio monitoraggio</h1>
@@ -346,6 +347,7 @@
                 <p class="step-kicker">Calcolo completato</p>
                 <h2 id="calculationTitle" tabindex="-1">Ecco il prezzo medio attuale.</h2>
                 <p id="calculationCard" class="success-card-name"></p>
+                <div id="calculationImage" class="card-image-preview card-image-preview--large" aria-label="Immagine della carta"></div>
 
                 <div id="calculationStatus" class="status-message calculation-status" role="status" aria-live="polite" hidden></div>
 
@@ -387,6 +389,7 @@
                 <p class="step-kicker">Monitoraggio attivato</p>
                 <h2 id="successTitle" tabindex="-1">La prima rilevazione è pronta.</h2>
                 <p id="successCard" class="success-card-name"></p>
+                <div id="successImage" class="card-image-preview" aria-label="Immagine della carta monitorata"></div>
                 <div id="priceResult" class="price-result">
                     <span class="price-label">Prezzo medio</span>
                     <strong id="averagePrice">—</strong>
@@ -410,5 +413,13 @@
             <p class="noscript-message">Per utilizzare Card Monitor è necessario abilitare JavaScript.</p>
         </noscript>
     </main>
+
+    <div id="loadingOverlay" class="loading-overlay" role="status" aria-live="polite" aria-modal="true" hidden>
+        <div class="loading-dialog">
+            <span class="loading-spinner" aria-hidden="true"></span>
+            <strong id="loadingOverlayTitle">Operazione in corso</strong>
+            <p id="loadingOverlayMessage">Attendi qualche secondo.</p>
+        </div>
+    </div>
 </body>
 </html>

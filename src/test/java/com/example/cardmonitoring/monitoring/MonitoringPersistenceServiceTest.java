@@ -27,7 +27,7 @@ class MonitoringPersistenceServiceTest {
 	private static final PriceCriteria CRITERIA = new PriceCriteria(
 			111151, 1472, "it", "Near Mint", false, false, false, false, false);
 	private static final CardIdentity CARD = new CardIdentity(
-			"Charizard", "Holo Rare | 4/102", "Base Set", "bs");
+			"Charizard", "Holo Rare | 4/102", "Base Set", "bs", null, null, null);
 
 	@Autowired
 	private MonitoringPersistenceService service;

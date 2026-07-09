@@ -779,6 +779,60 @@ select:disabled {
     to { transform: rotate(360deg); }
 }
 
+.loading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background:
+        radial-gradient(circle at 18% 12%, rgba(217, 95, 50, 0.12), transparent 28rem),
+        rgba(237, 241, 236, 0.76);
+    backdrop-filter: blur(6px);
+}
+
+.loading-overlay[hidden] {
+    display: none;
+}
+
+.loading-dialog {
+    display: grid;
+    justify-items: center;
+    gap: 14px;
+    width: min(360px, 100%);
+    padding: 30px 28px;
+    border: 1px solid rgba(23, 35, 31, 0.1);
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: var(--shadow);
+    color: var(--ink);
+    text-align: center;
+}
+
+.loading-dialog strong {
+    font-size: 1.08rem;
+}
+
+.loading-dialog p {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.55;
+}
+
+.loading-spinner {
+    width: 42px;
+    height: 42px;
+    border: 4px solid var(--accent-soft);
+    border-top-color: var(--accent);
+    border-radius: 999px;
+    animation: spin 850ms linear infinite;
+}
+
+body.is-loading-overlay-visible {
+    overflow: hidden;
+}
+
 .empty-dashboard {
     padding: 45px 25px;
 }
@@ -828,6 +882,69 @@ select:disabled {
     gap: 16px;
 }
 
+.card-image-preview {
+    display: grid;
+    width: 112px;
+    aspect-ratio: 245 / 342;
+    flex: 0 0 auto;
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid rgba(23, 35, 31, 0.12);
+    border-radius: 12px;
+    background:
+        linear-gradient(145deg, rgba(217, 95, 50, 0.13), rgba(39, 116, 84, 0.12)),
+        var(--surface-soft);
+    box-shadow: 0 12px 24px rgba(24, 43, 34, 0.11);
+}
+
+.card-image-preview img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.card-image-preview.is-placeholder {
+    gap: 8px;
+    align-content: center;
+    padding: 12px;
+    color: var(--muted);
+    text-align: center;
+}
+
+.card-image-placeholder-mark {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    border-radius: 50%;
+    color: white;
+    background: var(--ink);
+    font-size: 0.9rem;
+    font-weight: 850;
+}
+
+.card-image-preview small {
+    font-size: 0.66rem;
+    font-weight: 720;
+    line-height: 1.2;
+}
+
+.card-image-preview--large {
+    width: min(210px, 72vw);
+    margin: 0 auto 26px;
+    border-radius: 16px;
+}
+
+.monitoring-card-image {
+    width: 74px;
+    border-radius: 10px;
+}
+
+.detail-card-image {
+    width: 118px;
+}
+
 .monitoring-set {
     margin: 0 0 5px;
     color: var(--accent-dark);
@@ -842,6 +959,11 @@ select:disabled {
     font-size: 1.35rem;
     line-height: 1.1;
     letter-spacing: -0.035em;
+}
+
+.monitoring-card-header > div:not(.card-image-preview) {
+    min-width: 0;
+    flex: 1 1 auto;
 }
 
 .monitoring-version {

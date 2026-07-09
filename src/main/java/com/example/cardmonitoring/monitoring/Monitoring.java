@@ -51,6 +51,15 @@ public class Monitoring {
 	@Column(name = "expansion_code", nullable = false, length = 50)
 	private String expansionCode;
 
+	@Column(name = "image_url_small", length = 500)
+	private String imageUrlSmall;
+
+	@Column(name = "image_url_large", length = 500)
+	private String imageUrlLarge;
+
+	@Column(name = "image_source", length = 50)
+	private String imageSource;
+
 	@Column(nullable = false, length = 10)
 	private String language;
 
@@ -91,6 +100,7 @@ public class Monitoring {
 	}
 
 	public Monitoring(AppUser owner, String cardName, String cardVersion, String expansionName, String expansionCode,
+			String imageUrlSmall, String imageUrlLarge, String imageSource,
 			PriceCriteria criteria, String currency) {
 		Objects.requireNonNull(criteria, "criteria is required");
 		this.owner = Objects.requireNonNull(owner, "owner is required");
@@ -100,6 +110,9 @@ public class Monitoring {
 		this.cardVersion = requiredText(cardVersion, "cardVersion", 255);
 		this.expansionName = requiredText(expansionName, "expansionName", 255);
 		this.expansionCode = requiredText(expansionCode, "expansionCode", 50);
+		this.imageUrlSmall = optionalText(imageUrlSmall, 500);
+		this.imageUrlLarge = optionalText(imageUrlLarge, 500);
+		this.imageSource = optionalText(imageSource, 50);
 		this.language = criteria.language();
 		this.condition = requiredText(criteria.condition(), "condition", 50);
 		this.firstEdition = criteria.firstEdition();
@@ -174,6 +187,18 @@ public class Monitoring {
 		return expansionCode;
 	}
 
+	public String getImageUrlSmall() {
+		return imageUrlSmall;
+	}
+
+	public String getImageUrlLarge() {
+		return imageUrlLarge;
+	}
+
+	public String getImageSource() {
+		return imageSource;
+	}
+
 	public String getLanguage() {
 		return language;
 	}
@@ -237,6 +262,17 @@ public class Monitoring {
 		}
 		if (normalized.length() > maximumLength) {
 			throw new IllegalArgumentException(fieldName + " is too long");
+		}
+		return normalized;
+	}
+
+	private static String optionalText(String value, int maximumLength) {
+		String normalized = value == null ? "" : value.trim();
+		if (normalized.isEmpty()) {
+			return null;
+		}
+		if (normalized.length() > maximumLength) {
+			throw new IllegalArgumentException("optional text is too long");
 		}
 		return normalized;
 	}

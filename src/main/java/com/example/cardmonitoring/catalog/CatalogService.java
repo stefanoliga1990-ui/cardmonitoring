@@ -6,6 +6,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Service;
 
@@ -26,10 +28,13 @@ public class CatalogService {
 			.comparing(CatalogExpansion::name, String.CASE_INSENSITIVE_ORDER)
 			.thenComparingLong(CatalogExpansion::id);
 	private static final Comparator<CatalogBlueprint> BLUEPRINT_ORDER = Comparator
-			.comparing(CatalogBlueprint::name, String.CASE_INSENSITIVE_ORDER)
+			.comparing(CatalogService::collectorNumberSortKey)
+			.thenComparing(CatalogBlueprint::name, String.CASE_INSENSITIVE_ORDER)
 			.thenComparing(blueprint -> blueprint.version() == null ? "" : blueprint.version(),
 					String.CASE_INSENSITIVE_ORDER)
 			.thenComparingLong(CatalogBlueprint::id);
+	private static final Pattern COLLECTOR_NUMBER_PATTERN = Pattern.compile(
+			"(?i)(?:^|\\s|\\|)([a-z]*)(\\d+)([a-z]*)\\s*(?:/\\s*([a-z]*\\d+[a-z]*))?");
 
 	private final CardTraderClient cardTraderClient;
 	private final Map<Long, CacheEntry<List<CatalogBlueprint>>> blueprintCache = new HashMap<>();
@@ -116,8 +121,52 @@ public class CatalogService {
 				&& blueprint.categoryId() == POKEMON_SINGLES_CATEGORY_ID;
 	}
 
+	private static CollectorNumberSortKey collectorNumberSortKey(CatalogBlueprint blueprint) {
+		String version = blueprint.version();
+		if (version == null || version.isBlank()) {
+			return CollectorNumberSortKey.noNumber();
+		}
+		Matcher matcher = COLLECTOR_NUMBER_PATTERN.matcher(version);
+		CollectorNumberSortKey bestMatch = CollectorNumberSortKey.noNumber();
+		while (matcher.find()) {
+			CollectorNumberSortKey candidate = new CollectorNumberSortKey(
+					false,
+					matcher.group(1).toUpperCase(),
+					Integer.parseInt(matcher.group(2)),
+					matcher.group(3).toUpperCase(),
+					matcher.group(4) == null ? "" : matcher.group(4).toUpperCase());
+			if (bestMatch.missing() || candidate.compareTo(bestMatch) < 0) {
+				bestMatch = candidate;
+			}
+		}
+		return bestMatch;
+	}
+
 	private static boolean isBlank(String value) {
 		return value == null || value.isBlank();
+	}
+
+	private record CollectorNumberSortKey(
+			boolean missing,
+			String prefix,
+			int number,
+			String suffix,
+			String total) implements Comparable<CollectorNumberSortKey> {
+
+		private static CollectorNumberSortKey noNumber() {
+			return new CollectorNumberSortKey(true, "", Integer.MAX_VALUE, "", "");
+		}
+
+		@Override
+		public int compareTo(CollectorNumberSortKey other) {
+			return Comparator
+					.comparing(CollectorNumberSortKey::missing)
+					.thenComparingInt(CollectorNumberSortKey::number)
+					.thenComparing(CollectorNumberSortKey::prefix, String.CASE_INSENSITIVE_ORDER)
+					.thenComparing(CollectorNumberSortKey::suffix, String.CASE_INSENSITIVE_ORDER)
+					.thenComparing(CollectorNumberSortKey::total, String.CASE_INSENSITIVE_ORDER)
+					.compare(this, other);
+		}
 	}
 
 	private record CacheEntry<T>(T value, Instant expiresAt) {

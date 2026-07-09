@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.List;
 
 import com.example.cardmonitoring.catalog.CatalogCard;
+import com.example.cardmonitoring.pokemontcg.CardImage;
 
 public record PriceCalculationPreviewResponse(
 		Instant calculatedAt,
@@ -15,6 +16,9 @@ public record PriceCalculationPreviewResponse(
 		long blueprintId,
 		String cardName,
 		String cardVersion,
+		String imageUrlSmall,
+		String imageUrlLarge,
+		String imageSource,
 		String language,
 		String condition,
 		boolean firstEdition,
@@ -36,6 +40,7 @@ public record PriceCalculationPreviewResponse(
 	static PriceCalculationPreviewResponse from(
 			Instant calculatedAt,
 			CatalogCard card,
+			CardImage image,
 			PriceCriteria criteria,
 			PriceCalculationResult result) {
 		return new PriceCalculationPreviewResponse(
@@ -47,6 +52,9 @@ public record PriceCalculationPreviewResponse(
 				card.blueprintId(),
 				card.cardName(),
 				card.cardVersion(),
+				image == null ? null : image.smallUrl(),
+				image == null ? null : image.largeUrl(),
+				image == null ? null : image.source(),
 				criteria.language(),
 				criteria.condition(),
 				criteria.firstEdition(),

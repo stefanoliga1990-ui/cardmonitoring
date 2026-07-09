@@ -30,6 +30,8 @@ import com.example.cardmonitoring.catalog.CatalogCard;
 import com.example.cardmonitoring.catalog.CatalogService;
 import com.example.cardmonitoring.monitoring.MonitoringPersistenceService.CardIdentity;
 import com.example.cardmonitoring.monitoring.MonitoringPersistenceService.RefreshTarget;
+import com.example.cardmonitoring.pokemontcg.CardImage;
+import com.example.cardmonitoring.pokemontcg.CardImageService;
 import com.example.cardmonitoring.pricing.ConfidenceLevel;
 import com.example.cardmonitoring.pricing.PriceCalculationResult;
 import com.example.cardmonitoring.pricing.PriceCalculationService;
@@ -54,19 +56,25 @@ class MonitoringServiceTest {
 	@Mock
 	private MonitoringPersistenceService persistenceService;
 
+	@Mock
+	private CardImageService cardImageService;
+
 	private MonitoringService service;
 
 	@BeforeEach
 	void setUp() {
 		CardTraderProperties properties = new CardTraderProperties();
 		properties.setExpectedCurrency("EUR");
-		service = new MonitoringService(catalogService, priceCalculationService, persistenceService, properties);
+		service = new MonitoringService(
+				catalogService, priceCalculationService, persistenceService, properties, cardImageService);
 	}
 
 	@Test
 	void createsMonitoringOnlyAfterCatalogResolutionAndInitialCalculation() {
 		CreateMonitoringRequest request = request();
 		when(catalogService.resolvePokemonCard(1472, 111151)).thenReturn(CARD);
+		when(cardImageService.resolve(CARD)).thenReturn(java.util.Optional.of(new CardImage(
+				"https://images.test/small.png", "https://images.test/large.png", "POKEMON_TCG_API")));
 		when(priceCalculationService.calculate(CRITERIA)).thenReturn(RESULT);
 		CreatedMonitoringResponse expected = new CreatedMonitoringResponse(null, null);
 		when(persistenceService.createWithInitialObservation(
@@ -79,9 +87,17 @@ class MonitoringServiceTest {
 		verify(persistenceService).createWithInitialObservation(
 				eq(42L), identity.capture(), eq(CRITERIA), eq("EUR"), any(Instant.class), eq(RESULT));
 		assertThat(identity.getValue()).isEqualTo(
-				new CardIdentity("Charizard", "Holo Rare | 4/102", "Base Set", "bs"));
-		InOrder order = inOrder(catalogService, priceCalculationService, persistenceService);
+				new CardIdentity(
+						"Charizard",
+						"Holo Rare | 4/102",
+						"Base Set",
+						"bs",
+						"https://images.test/small.png",
+						"https://images.test/large.png",
+						"POKEMON_TCG_API"));
+		InOrder order = inOrder(catalogService, cardImageService, priceCalculationService, persistenceService);
 		order.verify(catalogService).resolvePokemonCard(1472, 111151);
+		order.verify(cardImageService).resolve(CARD);
 		order.verify(priceCalculationService).calculate(CRITERIA);
 		order.verify(persistenceService).createWithInitialObservation(
 				eq(42L), any(CardIdentity.class), eq(CRITERIA), eq("EUR"), any(Instant.class), eq(RESULT));

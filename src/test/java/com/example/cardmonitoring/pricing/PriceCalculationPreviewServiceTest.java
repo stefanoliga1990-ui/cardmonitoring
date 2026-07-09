@@ -15,6 +15,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.example.cardmonitoring.catalog.CatalogCard;
 import com.example.cardmonitoring.catalog.CatalogService;
+import com.example.cardmonitoring.pokemontcg.CardImage;
+import com.example.cardmonitoring.pokemontcg.CardImageService;
 
 @ExtendWith(MockitoExtension.class)
 class PriceCalculationPreviewServiceTest {
@@ -24,6 +26,9 @@ class PriceCalculationPreviewServiceTest {
 
 	@Mock
 	private PriceCalculationService priceCalculationService;
+
+	@Mock
+	private CardImageService cardImageService;
 
 	@Test
 	void calculatesPreviewWithoutAnyPersistenceDependency() {
@@ -42,20 +47,25 @@ class PriceCalculationPreviewServiceTest {
 				ConfidenceLevel.MEDIUM,
 				List.of(new UsedMarketplaceOffer(418408517L, 10_000L, "EUR", 1)));
 		when(catalogService.resolvePokemonCard(1472, 111151)).thenReturn(card);
+		when(cardImageService.resolve(card)).thenReturn(java.util.Optional.of(new CardImage(
+				"https://images.test/small.png", "https://images.test/large.png", "POKEMON_TCG_API")));
 		when(priceCalculationService.calculate(criteria)).thenReturn(result);
 		PriceCalculationPreviewService service = new PriceCalculationPreviewService(
-				catalogService, priceCalculationService);
+				catalogService, priceCalculationService, cardImageService);
 
 		PriceCalculationPreviewResponse preview = service.calculate(request);
 
 		assertThat(preview.source()).isEqualTo("CARDTRADER_ACTIVE_LISTINGS");
 		assertThat(preview.cardName()).isEqualTo("Charizard");
+		assertThat(preview.imageUrlSmall()).isEqualTo("https://images.test/small.png");
+		assertThat(preview.imageUrlLarge()).isEqualTo("https://images.test/large.png");
 		assertThat(preview.averagePriceCents()).isEqualByComparingTo("10100.00");
 		assertThat(preview.offersUsed()).containsExactly(
 				new UsedMarketplaceOffer(418408517L, 10_000L, "EUR", 1));
 		assertThat(preview.calculatedAt()).isNotNull();
-		InOrder order = inOrder(catalogService, priceCalculationService);
+		InOrder order = inOrder(catalogService, cardImageService, priceCalculationService);
 		order.verify(catalogService).resolvePokemonCard(1472, 111151);
+		order.verify(cardImageService).resolve(card);
 		order.verify(priceCalculationService).calculate(criteria);
 	}
 }

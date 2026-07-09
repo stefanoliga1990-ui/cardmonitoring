@@ -10,6 +10,7 @@ import java.util.regex.Pattern;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
@@ -25,7 +26,7 @@ public class CardTraderClient {
 	private final CardTraderResponseParser responseParser;
 	private final CardTraderProperties properties;
 
-	public CardTraderClient(RestClient restClient, CardTraderResponseParser responseParser,
+	public CardTraderClient(@Qualifier("cardTraderRestClient") RestClient restClient, CardTraderResponseParser responseParser,
 			CardTraderProperties properties) {
 		this.restClient = restClient;
 		this.responseParser = responseParser;

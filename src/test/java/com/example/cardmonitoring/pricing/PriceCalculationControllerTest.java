@@ -49,6 +49,9 @@ class PriceCalculationControllerTest {
 				111151,
 				"Charizard",
 				"Holo Rare | 4/102",
+				"https://images.test/small.png",
+				"https://images.test/large.png",
+				"POKEMON_TCG_API",
 				"it",
 				"Near Mint",
 				false, false, false, false, false,
@@ -79,6 +82,7 @@ class PriceCalculationControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.source").value("CARDTRADER_ACTIVE_LISTINGS"))
 				.andExpect(jsonPath("$.cardName").value("Charizard"))
+				.andExpect(jsonPath("$.imageUrlSmall").value("https://images.test/small.png"))
 				.andExpect(jsonPath("$.averagePriceCents").value(10100.00))
 				.andExpect(jsonPath("$.offersUsed[0].offerId").value(418408517L))
 				.andExpect(jsonPath("$.offersUsed[0].priceCents").value(10000));
