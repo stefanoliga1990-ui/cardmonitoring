@@ -1056,22 +1056,13 @@
             ? `QR valido fino alle ${formatDateTime(link.expiresAt)}`
             : "QR temporaneo";
 
-        if (typeof QRCode !== "undefined" && typeof QRCode.toCanvas === "function") {
-            const canvas = document.createElement("canvas");
-            QRCode.toCanvas(canvas, link.linkUrl, {
-                width: 178,
-                margin: 1,
-                color: {
-                    dark: "#17231f",
-                    light: "#ffffff"
-                }
-            }, (error) => {
-                if (error) {
-                    renderTelegramQrFallback(link.linkUrl);
-                    return;
-                }
-                elements.telegramQrCode.replaceChildren(canvas);
-            });
+        if (link.qrCodeSvg) {
+            const image = document.createElement("img");
+            image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(link.qrCodeSvg)}`;
+            image.alt = "QR code per collegare Telegram";
+            image.decoding = "async";
+            image.addEventListener("error", () => renderTelegramQrFallback(link.linkUrl), { once: true });
+            elements.telegramQrCode.replaceChildren(image);
             return;
         }
 

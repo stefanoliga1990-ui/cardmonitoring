@@ -25,16 +25,19 @@ public class TelegramService {
 	private final TelegramLinkRequestRepository linkRequestRepository;
 	private final TelegramProperties properties;
 	private final TelegramClient telegramClient;
+	private final TelegramQrCodeService qrCodeService;
 
 	public TelegramService(
 			AppUserRepository appUserRepository,
 			TelegramLinkRequestRepository linkRequestRepository,
 			TelegramProperties properties,
-			TelegramClient telegramClient) {
+			TelegramClient telegramClient,
+			TelegramQrCodeService qrCodeService) {
 		this.appUserRepository = appUserRepository;
 		this.linkRequestRepository = linkRequestRepository;
 		this.properties = properties;
 		this.telegramClient = telegramClient;
+		this.qrCodeService = qrCodeService;
 	}
 
 	@Transactional(readOnly = true)
@@ -53,8 +56,13 @@ public class TelegramService {
 		Instant expiresAt = now.plus(15, ChronoUnit.MINUTES);
 		String token = newToken();
 		linkRequestRepository.save(new TelegramLinkRequest(user, token, now, expiresAt));
+		String linkUrl = properties.botDeepLink(token);
 		LOGGER.info("Created Telegram link request: ownerId={}, expiresAt={}", userId, expiresAt);
-		return new TelegramLinkResponse(properties.botDeepLink(token), expiresAt, properties.getBotUsername());
+		return new TelegramLinkResponse(
+				linkUrl,
+				qrCodeService.createSvg(linkUrl),
+				expiresAt,
+				properties.getBotUsername());
 	}
 
 	@Transactional
