@@ -747,6 +747,103 @@ select:disabled {
     margin: 0 0 22px;
 }
 
+.telegram-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 24px;
+    align-items: center;
+    margin-bottom: 22px;
+    padding: 22px 24px;
+    border: 1px solid rgba(23, 35, 31, 0.1);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.78);
+    box-shadow: 0 12px 32px rgba(24, 43, 34, 0.06);
+}
+
+.telegram-panel h2 {
+    margin-bottom: 7px;
+    font-size: 1.3rem;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+}
+
+.telegram-panel p {
+    margin-bottom: 0;
+    color: var(--muted);
+    font-size: 0.86rem;
+}
+
+.telegram-status {
+    margin-top: 12px;
+    color: #3e5a4d;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.telegram-status.is-error {
+    color: var(--danger);
+}
+
+.telegram-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    margin-top: 16px;
+}
+
+.telegram-actions .button {
+    min-height: 40px;
+    padding: 0 14px;
+    font-size: 0.76rem;
+}
+
+.telegram-qr-box {
+    display: grid;
+    justify-items: center;
+    gap: 9px;
+    min-width: 210px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--surface);
+}
+
+.telegram-qr-code {
+    display: grid;
+    width: 178px;
+    height: 178px;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 10px;
+    background: white;
+}
+
+.telegram-qr-code canvas {
+    display: block;
+}
+
+.telegram-qr-fallback {
+    padding: 12px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-align: center;
+}
+
+.telegram-open-link {
+    color: var(--accent-dark);
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.telegram-qr-box small {
+    color: var(--muted);
+    font-size: 0.68rem;
+    text-align: center;
+}
+
 .dashboard-loading,
 .empty-dashboard {
     display: grid;
@@ -1505,8 +1602,13 @@ body.is-loading-overlay-visible {
 
     .monitoring-grid,
     .metric-grid,
-    .detail-layout {
+    .detail-layout,
+    .telegram-panel {
         grid-template-columns: 1fr;
+    }
+
+    .telegram-qr-box {
+        width: 100%;
     }
 
     .monitoring-card-actions {

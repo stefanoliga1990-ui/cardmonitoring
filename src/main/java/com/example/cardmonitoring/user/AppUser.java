@@ -30,6 +30,21 @@ public class AppUser {
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt;
 
+	@Column(name = "telegram_chat_id", length = 50)
+	private String telegramChatId;
+
+	@Column(name = "telegram_username")
+	private String telegramUsername;
+
+	@Column(name = "telegram_enabled", nullable = false)
+	private boolean telegramEnabled;
+
+	@Column(name = "telegram_linked_at")
+	private Instant telegramLinkedAt;
+
+	@Column(name = "telegram_last_error", length = 1000)
+	private String telegramLastError;
+
 	protected AppUser() {
 	}
 
@@ -58,5 +73,66 @@ public class AppUser {
 
 	public Instant getCreatedAt() {
 		return createdAt;
+	}
+
+	public String getTelegramChatId() {
+		return telegramChatId;
+	}
+
+	public String getTelegramUsername() {
+		return telegramUsername;
+	}
+
+	public boolean isTelegramEnabled() {
+		return telegramEnabled;
+	}
+
+	public Instant getTelegramLinkedAt() {
+		return telegramLinkedAt;
+	}
+
+	public String getTelegramLastError() {
+		return telegramLastError;
+	}
+
+	public void linkTelegram(String chatId, String username, Instant linkedAt) {
+		String normalizedChatId = normalizeRequired(chatId, "chatId", 50);
+		this.telegramChatId = normalizedChatId;
+		this.telegramUsername = normalizeOptional(username, 255);
+		this.telegramEnabled = true;
+		this.telegramLinkedAt = Objects.requireNonNull(linkedAt, "linkedAt is required");
+		this.telegramLastError = null;
+	}
+
+	public void unlinkTelegram() {
+		this.telegramChatId = null;
+		this.telegramUsername = null;
+		this.telegramEnabled = false;
+		this.telegramLinkedAt = null;
+		this.telegramLastError = null;
+	}
+
+	public void recordTelegramSuccess() {
+		this.telegramLastError = null;
+	}
+
+	public void recordTelegramError(String error) {
+		this.telegramLastError = normalizeOptional(error, 1000);
+	}
+
+	private static String normalizeRequired(String value, String fieldName, int maximumLength) {
+		String normalized = normalizeOptional(value, maximumLength);
+		if (normalized == null) {
+			throw new IllegalArgumentException(fieldName + " is required");
+		}
+		return normalized;
+	}
+
+	private static String normalizeOptional(String value, int maximumLength) {
+		String normalized = value == null ? "" : value.trim();
+		if (normalized.isEmpty()) {
+			return null;
+		}
+		return normalized.length() <= maximumLength ? normalized : normalized.substring(0, maximumLength);
 	}
 }

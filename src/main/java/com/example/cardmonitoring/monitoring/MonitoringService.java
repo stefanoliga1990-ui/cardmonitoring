@@ -15,6 +15,7 @@ import com.example.cardmonitoring.cardtrader.CardTraderProperties;
 import com.example.cardmonitoring.catalog.CatalogCard;
 import com.example.cardmonitoring.catalog.CatalogService;
 import com.example.cardmonitoring.monitoring.MonitoringPersistenceService.CardIdentity;
+import com.example.cardmonitoring.monitoring.MonitoringPersistenceService.NotificationTarget;
 import com.example.cardmonitoring.monitoring.MonitoringPersistenceService.RefreshTarget;
 import com.example.cardmonitoring.pokemontcg.CardImage;
 import com.example.cardmonitoring.pokemontcg.CardImageService;
@@ -82,8 +83,9 @@ public class MonitoringService {
 				cardTraderProperties.getExpectedCurrency(),
 				observedAt,
 				result);
+		Long createdMonitoringId = created.monitoring() == null ? null : created.monitoring().id();
 		LOGGER.info("Monitoring activation completed: ownerId={}, monitoringId={}, blueprintId={}",
-				ownerId, created.monitoring().id(), criteria.blueprintId());
+				ownerId, createdMonitoringId, criteria.blueprintId());
 		return created;
 	}
 
@@ -109,6 +111,29 @@ public class MonitoringService {
 
 	public PriceObservationResponse refreshScheduled(long monitoringId) {
 		return refreshInternal(monitoringId, null);
+	}
+
+	public ScheduledRefreshResult notificationResultForScheduledSuccess(
+			long monitoringId,
+			PriceObservationResponse observation) {
+		NotificationTarget target = persistenceService.findNotificationTargetForScheduler(monitoringId);
+		return ScheduledRefreshResult.success(target, observation);
+	}
+
+	public ScheduledRefreshResult refreshScheduledWithNotificationData(long monitoringId) {
+		try {
+			PriceObservationResponse observation = refreshScheduled(monitoringId);
+			NotificationTarget target = persistenceService.findNotificationTargetForScheduler(monitoringId);
+			return ScheduledRefreshResult.success(target, observation);
+		}
+		catch (MonitoringRefreshInProgressException exception) {
+			throw exception;
+		}
+		catch (RuntimeException exception) {
+			return persistenceService.findNotificationTargetOptionalForScheduler(monitoringId)
+					.map(target -> ScheduledRefreshResult.failure(target, safeFailureMessage(exception)))
+					.orElseThrow(() -> exception);
+		}
 	}
 
 	private PriceObservationResponse refreshInternal(long monitoringId, Long ownerId) {
@@ -147,6 +172,29 @@ public class MonitoringService {
 
 	public List<PriceObservationResponse> findObservations(long ownerId, long monitoringId) {
 		return persistenceService.findObservations(ownerId, monitoringId);
+	}
+
+	private static String safeFailureMessage(RuntimeException exception) {
+		String message = exception.getMessage();
+		return message == null || message.isBlank() ? UNEXPECTED_CALCULATION_ERROR : message;
+	}
+
+	public record ScheduledRefreshResult(
+			NotificationTarget target,
+			PriceObservationResponse observation,
+			String error) {
+
+		public static ScheduledRefreshResult success(NotificationTarget target, PriceObservationResponse observation) {
+			return new ScheduledRefreshResult(target, observation, null);
+		}
+
+		public static ScheduledRefreshResult failure(NotificationTarget target, String error) {
+			return new ScheduledRefreshResult(target, null, error);
+		}
+
+		public boolean success() {
+			return observation != null;
+		}
 	}
 
 }

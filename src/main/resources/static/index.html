@@ -7,6 +7,7 @@
     <title>Card Monitor</title>
     <link rel="stylesheet" href="/css/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" defer></script>
     <script src="/js/app.js" defer></script>
 </head>
 <body>
@@ -85,6 +86,35 @@
             </header>
 
             <div id="dashboardStatus" class="status-message dashboard-status" role="status" aria-live="polite" hidden></div>
+
+            <section id="telegramPanel" class="telegram-panel" aria-labelledby="telegramTitle" hidden>
+                <div class="telegram-copy">
+                    <p class="eyebrow">Telegram</p>
+                    <h2 id="telegramTitle">Riepilogo settimanale sul telefono.</h2>
+                    <p id="telegramDescription">
+                        Collega Telegram per ricevere il risultato del calcolo automatico settimanale.
+                    </p>
+                    <div id="telegramStatus" class="telegram-status" role="status" aria-live="polite"></div>
+                    <div class="telegram-actions">
+                        <button id="telegramCreateLinkButton" class="button button--primary" type="button">
+                            Collega Telegram
+                        </button>
+                        <button id="telegramTestButton" class="button button--secondary" type="button" hidden>
+                            Invia messaggio di test
+                        </button>
+                        <button id="telegramUnlinkButton" class="button button--danger" type="button" hidden>
+                            Scollega
+                        </button>
+                    </div>
+                </div>
+                <div id="telegramQrBox" class="telegram-qr-box" hidden>
+                    <div id="telegramQrCode" class="telegram-qr-code" aria-label="QR code per collegare Telegram"></div>
+                    <a id="telegramOpenLink" class="telegram-open-link" href="#" target="_blank" rel="noopener">
+                        Apri Telegram
+                    </a>
+                    <small id="telegramQrExpiry"></small>
+                </div>
+            </section>
 
             <section id="dashboardLoading" class="dashboard-loading" aria-label="Caricamento monitoraggi">
                 <span class="loading-dot" aria-hidden="true"></span>

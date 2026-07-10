@@ -75,6 +75,13 @@
         submitting: false
     };
 
+    const telegramState = {
+        loading: false,
+        linked: false,
+        linkPollTimer: null,
+        linkPollAttempts: 0
+    };
+
     const ROUTES = {
         dashboard: "#dashboard",
         wizard: "#wizard"
@@ -132,6 +139,15 @@
         wizardView: document.querySelector("#wizardView"),
         detailView: document.querySelector("#detailView"),
         dashboardStatus: document.querySelector("#dashboardStatus"),
+        telegramPanel: document.querySelector("#telegramPanel"),
+        telegramStatus: document.querySelector("#telegramStatus"),
+        telegramCreateLink: document.querySelector("#telegramCreateLinkButton"),
+        telegramTest: document.querySelector("#telegramTestButton"),
+        telegramUnlink: document.querySelector("#telegramUnlinkButton"),
+        telegramQrBox: document.querySelector("#telegramQrBox"),
+        telegramQrCode: document.querySelector("#telegramQrCode"),
+        telegramOpenLink: document.querySelector("#telegramOpenLink"),
+        telegramQrExpiry: document.querySelector("#telegramQrExpiry"),
         detailStatus: document.querySelector("#detailStatus"),
         dashboardLoading: document.querySelector("#dashboardLoading"),
         dashboardEmpty: document.querySelector("#dashboardEmpty"),
@@ -197,6 +213,9 @@
         elements.activateMonitoring.addEventListener("click", activateMonitoring);
         elements.goToDashboard.addEventListener("click", showDashboard);
         elements.newMonitoring.addEventListener("click", showWizard);
+        elements.telegramCreateLink.addEventListener("click", createTelegramLink);
+        elements.telegramTest.addEventListener("click", sendTelegramTestMessage);
+        elements.telegramUnlink.addEventListener("click", unlinkTelegram);
         elements.backToDashboard.addEventListener("click", showDashboard);
         elements.detailRefresh.addEventListener("click", () => refreshMonitoring(dashboardState.selectedMonitoringId, true));
         elements.detailDeactivate.addEventListener("click", () => deactivateMonitoring(dashboardState.selectedMonitoringId));
@@ -335,6 +354,8 @@
             authState.user = null;
             authState.csrfToken = null;
             dashboardState.items = [];
+            telegramState.linked = false;
+            stopTelegramLinkPolling();
             await refreshCsrfToken();
             showAuth("Sessione terminata correttamente.", "info");
         }
@@ -918,6 +939,7 @@
         elements.dashboardEmpty.hidden = true;
         elements.monitoringGrid.hidden = true;
         clearDashboardStatus();
+        loadTelegramStatus();
 
         try {
             const monitorings = await requestJson("/api/monitorings");
@@ -956,6 +978,193 @@
         });
         elements.dashboardEmpty.hidden = true;
         elements.monitoringGrid.hidden = false;
+    }
+
+    async function loadTelegramStatus() {
+        if (telegramState.loading) {
+            return;
+        }
+        telegramState.loading = true;
+        try {
+            const status = await requestJson("/api/telegram/status");
+            renderTelegramStatus(status);
+        }
+        catch (error) {
+            elements.telegramPanel.hidden = true;
+        }
+        finally {
+            telegramState.loading = false;
+        }
+    }
+
+    function renderTelegramStatus(status) {
+        if (!status || !status.integrationEnabled) {
+            elements.telegramPanel.hidden = true;
+            return;
+        }
+        telegramState.linked = Boolean(status.linked && status.notificationsEnabled);
+        elements.telegramPanel.hidden = false;
+        const pollingForLink = telegramState.linkPollTimer !== null;
+        if (!pollingForLink || telegramState.linked) {
+            elements.telegramQrBox.hidden = true;
+            elements.telegramQrCode.replaceChildren();
+            elements.telegramOpenLink.removeAttribute("href");
+        }
+        elements.telegramTest.hidden = !telegramState.linked;
+        elements.telegramUnlink.hidden = !telegramState.linked;
+        elements.telegramCreateLink.textContent = telegramState.linked ? "Ricollega Telegram" : "Collega Telegram";
+
+        if (telegramState.linked) {
+            stopTelegramLinkPolling();
+            const username = status.username ? `@${status.username}` : "chat privata";
+            const linkedAt = status.linkedAt ? ` Collegato il ${formatDateTime(status.linkedAt)}.` : "";
+            const error = status.lastError ? ` Ultimo errore: ${status.lastError}` : "";
+            setTelegramStatus(`Telegram collegato (${username}).${linkedAt}${error}`, status.lastError ? "error" : "info");
+        }
+        else {
+            setTelegramStatus("Scansiona il QR code con Telegram e premi Start per collegare il bot.", "info");
+        }
+    }
+
+    async function createTelegramLink() {
+        if (telegramState.loading) {
+            return;
+        }
+        telegramState.loading = true;
+        setTelegramButtonsDisabled(true);
+        setTelegramStatus("Generazione del QR code in corso…", "info");
+        try {
+            const link = await requestJson("/api/telegram/link-requests", { method: "POST" });
+            renderTelegramQr(link);
+            setTelegramStatus("Scansiona il QR code oppure apri Telegram da questo dispositivo, poi premi Start nel bot.", "info");
+            startTelegramLinkPolling();
+        }
+        catch (error) {
+            setTelegramStatus(errorMessage(error, "Impossibile generare il collegamento Telegram."), "error");
+        }
+        finally {
+            telegramState.loading = false;
+            setTelegramButtonsDisabled(false);
+        }
+    }
+
+    function renderTelegramQr(link) {
+        elements.telegramQrBox.hidden = false;
+        elements.telegramQrCode.replaceChildren();
+        elements.telegramOpenLink.href = link.linkUrl;
+        elements.telegramQrExpiry.textContent = link.expiresAt
+            ? `QR valido fino alle ${formatDateTime(link.expiresAt)}`
+            : "QR temporaneo";
+
+        if (typeof QRCode !== "undefined" && typeof QRCode.toCanvas === "function") {
+            const canvas = document.createElement("canvas");
+            QRCode.toCanvas(canvas, link.linkUrl, {
+                width: 178,
+                margin: 1,
+                color: {
+                    dark: "#17231f",
+                    light: "#ffffff"
+                }
+            }, (error) => {
+                if (error) {
+                    renderTelegramQrFallback(link.linkUrl);
+                    return;
+                }
+                elements.telegramQrCode.replaceChildren(canvas);
+            });
+            return;
+        }
+
+        renderTelegramQrFallback(link.linkUrl);
+    }
+
+    function renderTelegramQrFallback(linkUrl) {
+        elements.telegramQrCode.replaceChildren(
+            createElement("span", "telegram-qr-fallback", "QR non disponibile")
+        );
+        elements.telegramOpenLink.href = linkUrl;
+    }
+
+    async function sendTelegramTestMessage() {
+        if (telegramState.loading) {
+            return;
+        }
+        telegramState.loading = true;
+        setTelegramButtonsDisabled(true);
+        setTelegramStatus("Invio del messaggio di test…", "info");
+        try {
+            await requestJson("/api/telegram/test-message", { method: "POST" });
+            setTelegramStatus("Messaggio di test inviato. Controlla Telegram.", "info");
+        }
+        catch (error) {
+            setTelegramStatus(errorMessage(error, "Messaggio di test non riuscito."), "error");
+        }
+        finally {
+            telegramState.loading = false;
+            setTelegramButtonsDisabled(false);
+        }
+    }
+
+    async function unlinkTelegram() {
+        if (telegramState.loading || !window.confirm("Scollegare Telegram da questo account?")) {
+            return;
+        }
+        telegramState.loading = true;
+        setTelegramButtonsDisabled(true);
+        try {
+            await requestJson("/api/telegram/unlink", { method: "POST" });
+            telegramState.loading = false;
+            await loadTelegramStatus();
+            setTelegramStatus("Telegram scollegato correttamente.", "info");
+        }
+        catch (error) {
+            setTelegramStatus(errorMessage(error, "Scollegamento non riuscito."), "error");
+        }
+        finally {
+            telegramState.loading = false;
+            setTelegramButtonsDisabled(false);
+        }
+    }
+
+    function setTelegramButtonsDisabled(disabled) {
+        elements.telegramCreateLink.disabled = disabled;
+        elements.telegramTest.disabled = disabled;
+        elements.telegramUnlink.disabled = disabled;
+    }
+
+    function setTelegramStatus(message, type) {
+        elements.telegramStatus.textContent = message;
+        elements.telegramStatus.classList.toggle("is-error", type === "error");
+    }
+
+    function startTelegramLinkPolling() {
+        stopTelegramLinkPolling();
+        telegramState.linkPollAttempts = 0;
+        const poll = async () => {
+            telegramState.linkPollAttempts += 1;
+            try {
+                const status = await requestJson("/api/telegram/status");
+                renderTelegramStatus(status);
+                if (status && status.linked && status.notificationsEnabled) {
+                    setTelegramStatus("Telegram collegato correttamente. Puoi inviare un messaggio di test.", "info");
+                    return;
+                }
+            }
+            catch (error) {
+                return;
+            }
+            if (telegramState.linkPollAttempts < 30) {
+                telegramState.linkPollTimer = window.setTimeout(poll, 4000);
+            }
+        };
+        telegramState.linkPollTimer = window.setTimeout(poll, 4000);
+    }
+
+    function stopTelegramLinkPolling() {
+        if (telegramState.linkPollTimer !== null) {
+            window.clearTimeout(telegramState.linkPollTimer);
+            telegramState.linkPollTimer = null;
+        }
     }
 
     function createMonitoringCard(item) {

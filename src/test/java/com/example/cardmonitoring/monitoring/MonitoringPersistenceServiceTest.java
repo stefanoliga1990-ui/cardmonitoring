@@ -102,7 +102,7 @@ class MonitoringPersistenceServiceTest {
 	}
 
 	private static PriceCalculationResult result(String average, ConfidenceLevel confidence) {
-		int offers = confidence == ConfidenceLevel.HIGH ? 5 : 3;
+		int offers = confidence == ConfidenceLevel.HIGH ? 4 : 3;
 		return new PriceCalculationResult(
 				"EUR", new BigDecimal(average), 10_000L, 10_500L, offers, offers, confidence);
 	}

@@ -2,6 +2,7 @@ package com.example.cardmonitoring.monitoring;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -86,11 +87,39 @@ public class MonitoringPersistenceService {
 		return refreshTarget(requireMonitoring(monitoringId));
 	}
 
+	@Transactional(readOnly = true)
+	public NotificationTarget findNotificationTargetForScheduler(long monitoringId) {
+		return notificationTarget(requireMonitoring(monitoringId));
+	}
+
+	@Transactional(readOnly = true)
+	public Optional<NotificationTarget> findNotificationTargetOptionalForScheduler(long monitoringId) {
+		return monitoringRepository.findById(monitoringId).map(this::notificationTarget);
+	}
+
 	private RefreshTarget refreshTarget(Monitoring monitoring) {
 		if (!monitoring.isActive()) {
 			throw new MonitoringInactiveException(monitoring.getId());
 		}
 		return new RefreshTarget(monitoring.getId(), monitoring.toPriceCriteria());
+	}
+
+	private NotificationTarget notificationTarget(Monitoring monitoring) {
+		return new NotificationTarget(
+				monitoring.getId(),
+				monitoring.getOwner().getId(),
+				monitoring.getCardName(),
+				monitoring.getCardVersion(),
+				monitoring.getExpansionName(),
+				monitoring.getExpansionCode(),
+				monitoring.getLanguage(),
+				monitoring.getCondition(),
+				monitoring.isFirstEdition(),
+				monitoring.isReverse(),
+				monitoring.isGraded(),
+				monitoring.isSigned(),
+				monitoring.isAltered(),
+				monitoring.getCurrency());
 	}
 
 	@Transactional
@@ -156,5 +185,22 @@ public class MonitoringPersistenceService {
 	}
 
 	public record RefreshTarget(long monitoringId, PriceCriteria criteria) {
+	}
+
+	public record NotificationTarget(
+			long monitoringId,
+			long ownerId,
+			String cardName,
+			String cardVersion,
+			String expansionName,
+			String expansionCode,
+			String language,
+			String condition,
+			boolean firstEdition,
+			boolean reverse,
+			boolean graded,
+			boolean signed,
+			boolean altered,
+			String currency) {
 	}
 }

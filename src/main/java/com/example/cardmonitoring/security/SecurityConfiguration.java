@@ -60,10 +60,13 @@ public class SecurityConfiguration {
 						.requestMatchers(
 								"/", "/index.html", "/css/**", "/js/**", "/favicon.ico", "/error",
 								"/api/auth/csrf", "/api/auth/register", "/api/auth/login",
+								"/api/telegram/webhook",
 								"/actuator/health")
 						.permitAll()
 						.anyRequest().authenticated())
-				.csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository))
+				.csrf(csrf -> csrf
+						.csrfTokenRepository(csrfTokenRepository)
+						.ignoringRequestMatchers("/api/telegram/webhook"))
 				.securityContext(context -> context
 						.securityContextRepository(securityContextRepository)
 						.requireExplicitSave(true))

@@ -1,6 +1,7 @@
 package com.example.cardmonitoring.monitoring;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
@@ -9,6 +10,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import com.example.cardmonitoring.monitoring.MonitoringService.ScheduledRefreshResult;
+import com.example.cardmonitoring.telegram.TelegramScheduledNotificationService;
+
 @Component
 public class MonitoringScheduler {
 
@@ -16,17 +20,28 @@ public class MonitoringScheduler {
 	private static final long MARKETPLACE_CALL_INTERVAL_MILLIS = 1_000L;
 
 	private final MonitoringService monitoringService;
+	private final TelegramScheduledNotificationService telegramNotificationService;
 	private final Sleeper sleeper;
 	private final AtomicBoolean running = new AtomicBoolean();
 
 	@Autowired
-	public MonitoringScheduler(MonitoringService monitoringService) {
-		this(monitoringService, Thread::sleep);
+	public MonitoringScheduler(
+			MonitoringService monitoringService,
+			TelegramScheduledNotificationService telegramNotificationService) {
+		this(monitoringService, Thread::sleep, telegramNotificationService);
 	}
 
 	MonitoringScheduler(MonitoringService monitoringService, Sleeper sleeper) {
+		this(monitoringService, sleeper, null);
+	}
+
+	MonitoringScheduler(
+			MonitoringService monitoringService,
+			Sleeper sleeper,
+			TelegramScheduledNotificationService telegramNotificationService) {
 		this.monitoringService = monitoringService;
 		this.sleeper = sleeper;
+		this.telegramNotificationService = telegramNotificationService;
 	}
 
 	@Scheduled(cron = "${monitoring.scheduler.cron}", zone = "${monitoring.scheduler.time-zone}")
@@ -38,13 +53,15 @@ public class MonitoringScheduler {
 
 		try {
 			List<Long> monitorings = monitoringService.findActiveIdsForScheduler();
+			List<ScheduledRefreshResult> notificationResults = new ArrayList<>();
 			LOGGER.info("Starting scheduled refresh for {} active monitorings", monitorings.size());
 			for (int index = 0; index < monitorings.size(); index++) {
 				if (index > 0 && !waitForNextMarketplaceCall()) {
 					return;
 				}
-				refreshOne(monitorings.get(index));
+				refreshOne(monitorings.get(index), notificationResults);
 			}
+			sendTelegramSummary(notificationResults);
 			LOGGER.info("Scheduled monitoring refresh completed");
 		}
 		catch (RuntimeException exception) {
@@ -55,9 +72,14 @@ public class MonitoringScheduler {
 		}
 	}
 
-	private void refreshOne(long monitoringId) {
+	private void refreshOne(long monitoringId, List<ScheduledRefreshResult> notificationResults) {
 		try {
-			monitoringService.refreshScheduled(monitoringId);
+			PriceObservationResponse observation = monitoringService.refreshScheduled(monitoringId);
+			ScheduledRefreshResult result = monitoringService.notificationResultForScheduledSuccess(
+					monitoringId, observation);
+			if (result != null) {
+				notificationResults.add(result);
+			}
 			LOGGER.info("Scheduled refresh completed for monitoring {}", monitoringId);
 		}
 		catch (MonitoringRefreshInProgressException exception) {
@@ -67,6 +89,18 @@ public class MonitoringScheduler {
 		catch (RuntimeException exception) {
 			LOGGER.warn("Scheduled refresh failed for monitoring {}: {}",
 					monitoringId, exception.getMessage());
+		}
+	}
+
+	private void sendTelegramSummary(List<ScheduledRefreshResult> notificationResults) {
+		if (telegramNotificationService == null || notificationResults.isEmpty()) {
+			return;
+		}
+		try {
+			telegramNotificationService.notifyScheduledRun(notificationResults);
+		}
+		catch (RuntimeException exception) {
+			LOGGER.warn("Telegram scheduled summary failed: {}", exception.getMessage());
 		}
 	}
 

@@ -51,7 +51,7 @@ class MonitoringPersistenceTest {
 		monitoring = monitoringRepository.saveAndFlush(monitoring);
 
 		PriceCalculationResult result = new PriceCalculationResult(
-				"EUR", new BigDecimal("10100.67"), 10_000L, 10_201L, 7, 5, ConfidenceLevel.HIGH);
+				"EUR", new BigDecimal("10100.67"), 10_000L, 10_201L, 7, 4, ConfidenceLevel.HIGH);
 		Instant observedAt = Instant.parse("2026-07-03T08:00:01Z");
 		observationRepository.saveAndFlush(new PriceObservation(monitoring, observedAt, result));
 
@@ -88,7 +88,7 @@ class MonitoringPersistenceTest {
 			assertThat(observation.getMinimumPriceCents()).isEqualTo(10_000L);
 			assertThat(observation.getMaximumPriceCents()).isEqualTo(10_201L);
 			assertThat(observation.getCompatibleOffers()).isEqualTo(7);
-			assertThat(observation.getUsedOffers()).isEqualTo(5);
+			assertThat(observation.getUsedOffers()).isEqualTo(4);
 			assertThat(observation.getConfidence()).isEqualTo(ConfidenceLevel.HIGH);
 		});
 	}
