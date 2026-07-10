@@ -748,23 +748,91 @@ select:disabled {
 }
 
 .telegram-panel {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 24px;
-    align-items: center;
     margin-bottom: 22px;
-    padding: 22px 24px;
     border: 1px solid rgba(23, 35, 31, 0.1);
     border-radius: 18px;
     background: rgba(255, 255, 255, 0.78);
     box-shadow: 0 12px 32px rgba(24, 43, 34, 0.06);
 }
 
-.telegram-panel h2 {
-    margin-bottom: 7px;
+.telegram-toggle {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 17px 20px;
+    border-radius: 18px;
+    color: var(--ink);
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+}
+
+.telegram-toggle:focus-visible {
+    outline: 3px solid rgba(217, 95, 50, 0.22);
+    outline-offset: 3px;
+}
+
+.telegram-toggle-text {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+}
+
+.telegram-toggle .eyebrow {
+    margin: 0;
+}
+
+.telegram-title {
     font-size: 1.3rem;
+    font-weight: 830;
     line-height: 1.15;
     letter-spacing: -0.03em;
+}
+
+.telegram-collapsed-status {
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.telegram-collapsed-status.is-linked {
+    color: var(--success);
+}
+
+.telegram-collapsed-status.is-error {
+    color: var(--danger);
+}
+
+.telegram-toggle-icon {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--accent-dark);
+    background: var(--accent-soft);
+    font-size: 1.2rem;
+    font-weight: 900;
+    transition: transform 160ms ease;
+}
+
+.telegram-panel:not(.is-collapsed) .telegram-toggle-icon {
+    transform: rotate(180deg);
+}
+
+.telegram-panel-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 24px;
+    align-items: center;
+    padding: 0 24px 22px;
+}
+
+.telegram-panel.is-collapsed .telegram-panel-content {
+    display: none;
 }
 
 .telegram-panel p {
@@ -1605,7 +1673,7 @@ body.is-loading-overlay-visible {
     .monitoring-grid,
     .metric-grid,
     .detail-layout,
-    .telegram-panel {
+    .telegram-panel-content {
         grid-template-columns: 1fr;
     }
 

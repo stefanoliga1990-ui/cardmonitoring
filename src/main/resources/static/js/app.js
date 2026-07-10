@@ -78,6 +78,7 @@
     const telegramState = {
         loading: false,
         linked: false,
+        expanded: false,
         linkPollTimer: null,
         linkPollAttempts: 0
     };
@@ -140,6 +141,9 @@
         detailView: document.querySelector("#detailView"),
         dashboardStatus: document.querySelector("#dashboardStatus"),
         telegramPanel: document.querySelector("#telegramPanel"),
+        telegramToggle: document.querySelector("#telegramToggleButton"),
+        telegramDescription: document.querySelector("#telegramDescription"),
+        telegramCollapsedStatus: document.querySelector("#telegramCollapsedStatus"),
         telegramStatus: document.querySelector("#telegramStatus"),
         telegramCreateLink: document.querySelector("#telegramCreateLinkButton"),
         telegramTest: document.querySelector("#telegramTestButton"),
@@ -213,6 +217,7 @@
         elements.activateMonitoring.addEventListener("click", activateMonitoring);
         elements.goToDashboard.addEventListener("click", showDashboard);
         elements.newMonitoring.addEventListener("click", showWizard);
+        elements.telegramToggle.addEventListener("click", toggleTelegramPanel);
         elements.telegramCreateLink.addEventListener("click", createTelegramLink);
         elements.telegramTest.addEventListener("click", sendTelegramTestMessage);
         elements.telegramUnlink.addEventListener("click", unlinkTelegram);
@@ -1004,6 +1009,8 @@
         }
         telegramState.linked = Boolean(status.linked && status.notificationsEnabled);
         elements.telegramPanel.hidden = false;
+        renderTelegramExpandedState();
+        elements.telegramDescription.hidden = telegramState.linked;
         const pollingForLink = telegramState.linkPollTimer !== null;
         if (!pollingForLink || telegramState.linked) {
             elements.telegramQrBox.hidden = true;
@@ -1015,13 +1022,21 @@
         elements.telegramCreateLink.textContent = telegramState.linked ? "Ricollega Telegram" : "Collega Telegram";
 
         if (telegramState.linked) {
+            if (pollingForLink) {
+                setTelegramPanelExpanded(false);
+            }
             stopTelegramLinkPolling();
             const username = status.username ? `@${status.username}` : "chat privata";
             const linkedAt = status.linkedAt ? ` Collegato il ${formatDateTime(status.linkedAt)}.` : "";
             const error = status.lastError ? ` Ultimo errore: ${status.lastError}` : "";
+            setTelegramCollapsedStatus(
+                status.lastError ? "Collegato, ma con ultimo errore" : "Collegato",
+                status.lastError ? "error" : "linked"
+            );
             setTelegramStatus(`Telegram collegato (${username}).${linkedAt}${error}`, status.lastError ? "error" : "info");
         }
         else {
+            setTelegramCollapsedStatus("Non collegato", "info");
             setTelegramStatus("Scansiona il QR code con Telegram e premi Start per collegare il bot.", "info");
         }
     }
@@ -1032,6 +1047,7 @@
         }
         telegramState.loading = true;
         setTelegramButtonsDisabled(true);
+        setTelegramPanelExpanded(true);
         setTelegramStatus("Generazione del QR code in corso…", "info");
         try {
             const link = await requestJson("/api/telegram/link-requests", { method: "POST" });
@@ -1123,9 +1139,29 @@
         elements.telegramUnlink.disabled = disabled;
     }
 
+    function toggleTelegramPanel() {
+        setTelegramPanelExpanded(!telegramState.expanded);
+    }
+
+    function setTelegramPanelExpanded(expanded) {
+        telegramState.expanded = expanded;
+        renderTelegramExpandedState();
+    }
+
+    function renderTelegramExpandedState() {
+        elements.telegramPanel.classList.toggle("is-collapsed", !telegramState.expanded);
+        elements.telegramToggle.setAttribute("aria-expanded", String(telegramState.expanded));
+    }
+
     function setTelegramStatus(message, type) {
         elements.telegramStatus.textContent = message;
         elements.telegramStatus.classList.toggle("is-error", type === "error");
+    }
+
+    function setTelegramCollapsedStatus(message, type) {
+        elements.telegramCollapsedStatus.textContent = message;
+        elements.telegramCollapsedStatus.classList.toggle("is-linked", type === "linked");
+        elements.telegramCollapsedStatus.classList.toggle("is-error", type === "error");
     }
 
     function startTelegramLinkPolling() {

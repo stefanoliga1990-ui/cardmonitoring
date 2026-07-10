@@ -86,33 +86,41 @@
 
             <div id="dashboardStatus" class="status-message dashboard-status" role="status" aria-live="polite" hidden></div>
 
-            <section id="telegramPanel" class="telegram-panel" aria-labelledby="telegramTitle" hidden>
-                <div class="telegram-copy">
-                    <p class="eyebrow">Telegram</p>
-                    <h2 id="telegramTitle">Riepilogo settimanale sul telefono.</h2>
-                    <p id="telegramDescription">
-                        Collega Telegram per ricevere il risultato del calcolo automatico settimanale.
-                    </p>
-                    <div id="telegramStatus" class="telegram-status" role="status" aria-live="polite"></div>
-                    <div class="telegram-actions">
-                        <button id="telegramCreateLinkButton" class="button button--primary" type="button">
-                            Collega Telegram
-                        </button>
-                        <button id="telegramTestButton" class="button button--secondary" type="button" hidden>
-                            Invia messaggio di test
-                        </button>
-                        <button id="telegramUnlinkButton" class="button button--danger" type="button" hidden>
-                            Scollega
-                        </button>
+            <section id="telegramPanel" class="telegram-panel is-collapsed" aria-labelledby="telegramTitle" hidden>
+                <button id="telegramToggleButton" class="telegram-toggle" type="button" aria-expanded="false">
+                    <span class="telegram-toggle-text">
+                        <span class="eyebrow">Telegram</span>
+                        <span id="telegramTitle" class="telegram-title">Riepilogo settimanale sul telefono.</span>
+                        <span id="telegramCollapsedStatus" class="telegram-collapsed-status"></span>
+                    </span>
+                    <span class="telegram-toggle-icon" aria-hidden="true">⌄</span>
+                </button>
+                <div id="telegramPanelContent" class="telegram-panel-content">
+                    <div class="telegram-copy">
+                        <p id="telegramDescription">
+                            Collega Telegram per ricevere il risultato del calcolo automatico settimanale.
+                        </p>
+                        <div id="telegramStatus" class="telegram-status" role="status" aria-live="polite"></div>
+                        <div class="telegram-actions">
+                            <button id="telegramCreateLinkButton" class="button button--primary" type="button">
+                                Collega Telegram
+                            </button>
+                            <button id="telegramTestButton" class="button button--secondary" type="button" hidden>
+                                Invia messaggio di test
+                            </button>
+                            <button id="telegramUnlinkButton" class="button button--danger" type="button" hidden>
+                                Scollega
+                            </button>
+                        </div>
                     </div>
-                </div>
-                <div id="telegramQrBox" class="telegram-qr-box" hidden>
-                    <div id="telegramQrCode" class="telegram-qr-code" aria-label="QR code per collegare Telegram"></div>
-                    <a id="telegramOpenLink" class="telegram-open-link" href="#" target="_blank" rel="noopener">
-                        Apri Telegram
-                    </a>
-                    <small>Da PC il pulsante apre Telegram Desktop se installato. Il QR Ã¨ la via piÃ¹ affidabile da smartphone.</small>
-                    <small id="telegramQrExpiry"></small>
+                    <div id="telegramQrBox" class="telegram-qr-box" hidden>
+                        <div id="telegramQrCode" class="telegram-qr-code" aria-label="QR code per collegare Telegram"></div>
+                        <a id="telegramOpenLink" class="telegram-open-link" href="#" target="_blank" rel="noopener">
+                            Apri Telegram
+                        </a>
+                        <small>Da PC il pulsante apre Telegram Desktop se installato. Il QR è la via più affidabile da smartphone.</small>
+                        <small id="telegramQrExpiry"></small>
+                    </div>
                 </div>
             </section>
 
