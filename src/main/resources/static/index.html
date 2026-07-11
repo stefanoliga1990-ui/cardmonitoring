@@ -124,6 +124,44 @@
                 </div>
             </section>
 
+            <section id="imageBackfillPanel" class="tool-panel is-collapsed" aria-labelledby="imageBackfillTitle" hidden>
+                <button id="imageBackfillToggleButton" class="tool-toggle" type="button" aria-expanded="false">
+                    <span class="tool-toggle-text">
+                        <span class="eyebrow">Strumento temporaneo</span>
+                        <span id="imageBackfillTitle" class="tool-title">Popola cache immagini carte.</span>
+                        <span id="imageBackfillCollapsedStatus" class="tool-collapsed-status"></span>
+                    </span>
+                    <span class="tool-toggle-icon" aria-hidden="true">⌄</span>
+                </button>
+                <div id="imageBackfillContent" class="tool-panel-content">
+                    <div class="tool-copy">
+                        <p>
+                            Raccoglie gli URL disponibili da Pokémon TCG API e li salva nel DB per i blueprint CardTrader.
+                            Il job continua in background e può richiedere diversi minuti.
+                        </p>
+                        <div id="imageBackfillStatus" class="tool-status" role="status" aria-live="polite"></div>
+                        <div class="tool-progress" aria-label="Avanzamento backfill immagini">
+                            <span id="imageBackfillProgressBar"></span>
+                        </div>
+                        <dl class="tool-stats">
+                            <div><dt>Stato</dt><dd id="imageBackfillRunState">—</dd></div>
+                            <div><dt>Carte Pokémon indicizzate</dt><dd id="imageBackfillPokemonCards">0</dd></div>
+                            <div><dt>Blueprint processati</dt><dd id="imageBackfillBlueprints">0 / 0</dd></div>
+                            <div><dt>Immagini salvate</dt><dd id="imageBackfillSavedImages">0</dd></div>
+                            <div><dt>Aggiornate</dt><dd id="imageBackfillUpdatedImages">0</dd></div>
+                            <div><dt>Già presenti</dt><dd id="imageBackfillAlreadyPresentImages">0</dd></div>
+                            <div><dt>Saltate</dt><dd id="imageBackfillSkippedImages">0</dd></div>
+                            <div><dt>Errori</dt><dd id="imageBackfillErrors">0</dd></div>
+                        </dl>
+                        <div class="tool-actions">
+                            <button id="imageBackfillStartButton" class="button button--primary" type="button">
+                                Avvia raccolta immagini
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <section id="dashboardLoading" class="dashboard-loading" aria-label="Caricamento monitoraggi">
                 <span class="loading-dot" aria-hidden="true"></span>
                 <p>Caricamento dei monitoraggi…</p>

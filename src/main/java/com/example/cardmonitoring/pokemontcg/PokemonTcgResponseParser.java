@@ -25,32 +25,30 @@ class PokemonTcgResponseParser {
 	List<PokemonTcgCardCandidate> parseCards(String responseBody) {
 		try {
 			JsonNode root = objectMapper.readTree(responseBody);
-			JsonNode data = root.get("data");
-			if (data == null || !data.isArray()) {
-				LOGGER.warn("Pokemon TCG response ignored: missing or non-array data field");
-				return List.of();
-			}
-			List<PokemonTcgCardCandidate> cards = new ArrayList<>();
-			int skipped = 0;
-			for (JsonNode item : data) {
-				Optional<PokemonTcgCardCandidate> candidate = parseCandidate(item);
-				if (candidate.isPresent()) {
-					cards.add(candidate.get());
-				}
-				else {
-					skipped++;
-				}
-			}
-			if (skipped > 0) {
-				LOGGER.info("Pokemon TCG response parsed with skipped incomplete candidate(s): parsed={}, skipped={}",
-						cards.size(), skipped);
-			}
-			return List.copyOf(cards);
+			return parseCandidateList(root);
 		}
 		catch (RuntimeException exception) {
 			LOGGER.warn("Pokemon TCG response parsing failed: errorType={}, message={}",
 					exception.getClass().getSimpleName(), exception.getMessage());
 			return List.of();
+		}
+	}
+
+	PokemonTcgCardPage parseCardPage(String responseBody) {
+		try {
+			JsonNode root = objectMapper.readTree(responseBody);
+			List<PokemonTcgCardCandidate> cards = parseCandidateList(root);
+			return new PokemonTcgCardPage(
+					cards,
+					positiveInteger(root, "page", 1),
+					positiveInteger(root, "pageSize", cards.size()),
+					nonNegativeInteger(root, "count", cards.size()),
+					nonNegativeInteger(root, "totalCount", cards.size()));
+		}
+		catch (RuntimeException exception) {
+			LOGGER.warn("Pokemon TCG paged response parsing failed: errorType={}, message={}",
+					exception.getClass().getSimpleName(), exception.getMessage());
+			return new PokemonTcgCardPage(List.of(), 1, 0, 0, 0);
 		}
 	}
 
@@ -97,6 +95,30 @@ class PokemonTcgResponseParser {
 		return Optional.empty();
 	}
 
+	private static List<PokemonTcgCardCandidate> parseCandidateList(JsonNode root) {
+		JsonNode data = root.get("data");
+		if (data == null || !data.isArray()) {
+			LOGGER.warn("Pokemon TCG response ignored: missing or non-array data field");
+			return List.of();
+		}
+		List<PokemonTcgCardCandidate> cards = new ArrayList<>();
+		int skipped = 0;
+		for (JsonNode item : data) {
+			Optional<PokemonTcgCardCandidate> candidate = parseCandidate(item);
+			if (candidate.isPresent()) {
+				cards.add(candidate.get());
+			}
+			else {
+				skipped++;
+			}
+		}
+		if (skipped > 0) {
+			LOGGER.info("Pokemon TCG response parsed with skipped incomplete candidate(s): parsed={}, skipped={}",
+					cards.size(), skipped);
+		}
+		return List.copyOf(cards);
+	}
+
 	private static String optionalText(JsonNode object, String fieldName) {
 		if (object == null || !object.isObject()) {
 			return null;
@@ -117,5 +139,21 @@ class PokemonTcgResponseParser {
 			return null;
 		}
 		return value.asInt();
+	}
+
+	private static int positiveInteger(JsonNode object, String fieldName, int fallback) {
+		int value = nonNegativeInteger(object, fieldName, fallback);
+		return value <= 0 ? fallback : value;
+	}
+
+	private static int nonNegativeInteger(JsonNode object, String fieldName, int fallback) {
+		if (object == null || !object.isObject()) {
+			return fallback;
+		}
+		JsonNode value = object.get(fieldName);
+		if (value == null || !value.isIntegralNumber()) {
+			return fallback;
+		}
+		return Math.max(0, value.asInt());
 	}
 }

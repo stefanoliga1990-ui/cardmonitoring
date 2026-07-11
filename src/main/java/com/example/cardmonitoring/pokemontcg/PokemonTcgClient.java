@@ -81,6 +81,46 @@ public class PokemonTcgClient {
 		return List.of();
 	}
 
+	public PokemonTcgCardPage getCardsPage(int page, int pageSize) {
+		int safePage = Math.max(1, page);
+		int safePageSize = Math.max(1, Math.min(pageSize, 250));
+		for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+			try {
+				LOGGER.info("Calling Pokemon TCG cards API page: page={}, pageSize={}, attempt={}",
+						safePage, safePageSize, attempt);
+				String responseBody = get(uriBuilder -> uriBuilder
+						.path("/cards")
+						.queryParam("page", safePage)
+						.queryParam("pageSize", safePageSize)
+						.queryParam("select", "id,name,number,set,images")
+						.build());
+				PokemonTcgCardPage cardPage = responseParser.parseCardPage(responseBody);
+				LOGGER.info(
+						"Pokemon TCG cards API page completed: page={}, parsedCandidates={}, count={}, totalCount={}, attempt={}",
+						cardPage.page(), cardPage.cards().size(), cardPage.count(), cardPage.totalCount(), attempt);
+				return cardPage;
+			}
+			catch (RestClientException exception) {
+				if (attempt < MAX_ATTEMPTS) {
+					LOGGER.warn(
+							"Pokemon TCG cards API page failed, retrying: page={}, attempt={}, errorType={}, message={}",
+							safePage, attempt, exception.getClass().getSimpleName(), exception.getMessage());
+					pauseBeforeRetry();
+					continue;
+				}
+				LOGGER.warn("Pokemon TCG cards API page failed: page={}, attempts={}, errorType={}, message={}",
+						safePage, attempt, exception.getClass().getSimpleName(), exception.getMessage());
+				return new PokemonTcgCardPage(List.of(), safePage, safePageSize, 0, 0);
+			}
+			catch (IllegalArgumentException exception) {
+				LOGGER.warn("Pokemon TCG cards API page response rejected: page={}, errorType={}, message={}",
+						safePage, exception.getClass().getSimpleName(), exception.getMessage());
+				return new PokemonTcgCardPage(List.of(), safePage, safePageSize, 0, 0);
+			}
+		}
+		return new PokemonTcgCardPage(List.of(), safePage, safePageSize, 0, 0);
+	}
+
 	public Optional<PokemonTcgCardCandidate> findCardById(String cardId) {
 		if (!StringUtils.hasText(cardId)) {
 			LOGGER.info("Pokemon TCG single-card lookup skipped: blank cardId");

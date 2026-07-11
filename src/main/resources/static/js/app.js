@@ -85,6 +85,13 @@
         linkPollAttempts: 0
     };
 
+    const imageBackfillState = {
+        loading: false,
+        enabled: false,
+        expanded: false,
+        pollTimer: null
+    };
+
     const ROUTES = {
         dashboard: "#dashboard",
         wizard: "#wizard"
@@ -160,6 +167,20 @@
         telegramQrCode: document.querySelector("#telegramQrCode"),
         telegramOpenLink: document.querySelector("#telegramOpenLink"),
         telegramQrExpiry: document.querySelector("#telegramQrExpiry"),
+        imageBackfillPanel: document.querySelector("#imageBackfillPanel"),
+        imageBackfillToggle: document.querySelector("#imageBackfillToggleButton"),
+        imageBackfillCollapsedStatus: document.querySelector("#imageBackfillCollapsedStatus"),
+        imageBackfillStatus: document.querySelector("#imageBackfillStatus"),
+        imageBackfillProgressBar: document.querySelector("#imageBackfillProgressBar"),
+        imageBackfillRunState: document.querySelector("#imageBackfillRunState"),
+        imageBackfillPokemonCards: document.querySelector("#imageBackfillPokemonCards"),
+        imageBackfillBlueprints: document.querySelector("#imageBackfillBlueprints"),
+        imageBackfillSavedImages: document.querySelector("#imageBackfillSavedImages"),
+        imageBackfillUpdatedImages: document.querySelector("#imageBackfillUpdatedImages"),
+        imageBackfillAlreadyPresentImages: document.querySelector("#imageBackfillAlreadyPresentImages"),
+        imageBackfillSkippedImages: document.querySelector("#imageBackfillSkippedImages"),
+        imageBackfillErrors: document.querySelector("#imageBackfillErrors"),
+        imageBackfillStart: document.querySelector("#imageBackfillStartButton"),
         detailStatus: document.querySelector("#detailStatus"),
         dashboardLoading: document.querySelector("#dashboardLoading"),
         dashboardEmpty: document.querySelector("#dashboardEmpty"),
@@ -241,6 +262,8 @@
         elements.telegramCreateLink.addEventListener("click", createTelegramLink);
         elements.telegramTest.addEventListener("click", sendTelegramTestMessage);
         elements.telegramUnlink.addEventListener("click", unlinkTelegram);
+        elements.imageBackfillToggle.addEventListener("click", toggleImageBackfillPanel);
+        elements.imageBackfillStart.addEventListener("click", startImageBackfill);
         elements.backToDashboard.addEventListener("click", showDashboard);
         elements.detailRefresh.addEventListener("click", () => refreshMonitoring(dashboardState.selectedMonitoringId, true));
         elements.detailPurchasePrice.addEventListener("click", () => editPurchasePrice(dashboardState.selectedMonitoringId, true));
@@ -382,6 +405,7 @@
             dashboardState.items = [];
             telegramState.linked = false;
             stopTelegramLinkPolling();
+            stopImageBackfillPolling();
             await refreshCsrfToken();
             showAuth("Sessione terminata correttamente.", "info");
         }
@@ -1132,6 +1156,7 @@
         elements.monitoringGrid.hidden = true;
         clearDashboardStatus();
         loadTelegramStatus();
+        loadImageBackfillStatus();
 
         try {
             const monitorings = await requestJson("/api/monitorings");
@@ -1379,6 +1404,168 @@
             window.clearTimeout(telegramState.linkPollTimer);
             telegramState.linkPollTimer = null;
         }
+    }
+
+    async function loadImageBackfillStatus() {
+        if (imageBackfillState.loading) {
+            return;
+        }
+        imageBackfillState.loading = true;
+        try {
+            const status = await requestJson("/api/tools/image-backfill/status");
+            renderImageBackfillStatus(status);
+        }
+        catch (error) {
+            elements.imageBackfillPanel.hidden = true;
+            stopImageBackfillPolling();
+        }
+        finally {
+            imageBackfillState.loading = false;
+        }
+    }
+
+    async function startImageBackfill() {
+        if (imageBackfillState.loading) {
+            return;
+        }
+        imageBackfillState.loading = true;
+        elements.imageBackfillStart.disabled = true;
+        setImageBackfillPanelExpanded(true);
+        setImageBackfillStatus("Avvio della raccolta immagini in corso…", "info");
+        try {
+            const status = await requestJson("/api/tools/image-backfill/start", { method: "POST" });
+            renderImageBackfillStatus(status);
+            if (status.state === "RUNNING") {
+                startImageBackfillPolling();
+            }
+        }
+        catch (error) {
+            setImageBackfillStatus(errorMessage(error, "Impossibile avviare la raccolta immagini."), "error");
+            elements.imageBackfillStart.disabled = false;
+        }
+        finally {
+            imageBackfillState.loading = false;
+        }
+    }
+
+    function renderImageBackfillStatus(status) {
+        if (!status || !status.enabled) {
+            imageBackfillState.enabled = false;
+            elements.imageBackfillPanel.hidden = true;
+            stopImageBackfillPolling();
+            return;
+        }
+        imageBackfillState.enabled = true;
+        elements.imageBackfillPanel.hidden = false;
+        renderImageBackfillExpandedState();
+
+        const processed = Number(status.processedBlueprints || 0);
+        const total = Number(status.totalBlueprints || 0);
+        const skipped = Number(status.skippedWithoutCollectorNumber || 0)
+            + Number(status.skippedWithoutPokemonCandidate || 0)
+            + Number(status.skippedWithoutReliableMatch || 0);
+        const progress = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
+
+        elements.imageBackfillProgressBar.style.width = `${progress}%`;
+        elements.imageBackfillRunState.textContent = imageBackfillStateLabel(status.state);
+        elements.imageBackfillPokemonCards.textContent = formatInteger(status.totalPokemonCards || 0);
+        elements.imageBackfillBlueprints.textContent = `${formatInteger(processed)} / ${formatInteger(total)}`;
+        elements.imageBackfillSavedImages.textContent = formatInteger(status.savedImages || 0);
+        elements.imageBackfillUpdatedImages.textContent = formatInteger(status.updatedImages || 0);
+        elements.imageBackfillAlreadyPresentImages.textContent = formatInteger(status.alreadyPresentImages || 0);
+        elements.imageBackfillSkippedImages.textContent = formatInteger(skipped);
+        elements.imageBackfillErrors.textContent = formatInteger(status.errors || 0);
+        elements.imageBackfillStart.disabled = status.state === "RUNNING";
+
+        const current = [status.currentExpansion, status.currentCard].filter(Boolean).join(" · ");
+        if (status.state === "RUNNING") {
+            setImageBackfillCollapsedStatus(`In corso · ${progress}%`, "running");
+            setImageBackfillStatus(current ? `Sto elaborando: ${current}` : "Raccolta immagini in corso…", "info");
+            startImageBackfillPolling();
+            return;
+        }
+        stopImageBackfillPolling();
+        if (status.state === "COMPLETED") {
+            setImageBackfillCollapsedStatus("Completato", "linked");
+            setImageBackfillStatus("Raccolta immagini completata.", "info");
+        }
+        else if (status.state === "FAILED") {
+            setImageBackfillCollapsedStatus("Fallito", "error");
+            setImageBackfillStatus(status.lastError || "Raccolta immagini non riuscita.", "error");
+        }
+        else {
+            setImageBackfillCollapsedStatus("Pronto", "info");
+            setImageBackfillStatus("Puoi avviare la raccolta degli URL immagini quando vuoi.", "info");
+        }
+    }
+
+    function startImageBackfillPolling() {
+        if (imageBackfillState.pollTimer !== null) {
+            return;
+        }
+        const poll = async () => {
+            imageBackfillState.pollTimer = null;
+            if (!imageBackfillState.enabled) {
+                return;
+            }
+            try {
+                const status = await requestJson("/api/tools/image-backfill/status");
+                renderImageBackfillStatus(status);
+            }
+            catch (error) {
+                setImageBackfillStatus(errorMessage(error, "Stato raccolta immagini non disponibile."), "error");
+            }
+        };
+        imageBackfillState.pollTimer = window.setTimeout(poll, 3500);
+    }
+
+    function stopImageBackfillPolling() {
+        if (imageBackfillState.pollTimer !== null) {
+            window.clearTimeout(imageBackfillState.pollTimer);
+            imageBackfillState.pollTimer = null;
+        }
+    }
+
+    function toggleImageBackfillPanel() {
+        setImageBackfillPanelExpanded(!imageBackfillState.expanded);
+    }
+
+    function setImageBackfillPanelExpanded(expanded) {
+        imageBackfillState.expanded = expanded;
+        renderImageBackfillExpandedState();
+    }
+
+    function renderImageBackfillExpandedState() {
+        elements.imageBackfillPanel.classList.toggle("is-collapsed", !imageBackfillState.expanded);
+        elements.imageBackfillToggle.setAttribute("aria-expanded", String(imageBackfillState.expanded));
+    }
+
+    function setImageBackfillStatus(message, type) {
+        elements.imageBackfillStatus.textContent = message;
+        elements.imageBackfillStatus.classList.toggle("is-error", type === "error");
+    }
+
+    function setImageBackfillCollapsedStatus(message, type) {
+        elements.imageBackfillCollapsedStatus.textContent = message;
+        elements.imageBackfillCollapsedStatus.classList.toggle("is-linked", type === "linked");
+        elements.imageBackfillCollapsedStatus.classList.toggle("is-error", type === "error");
+        elements.imageBackfillCollapsedStatus.classList.toggle("is-running", type === "running");
+    }
+
+    function imageBackfillStateLabel(state) {
+        if (state === "RUNNING") {
+            return "In corso";
+        }
+        if (state === "COMPLETED") {
+            return "Completato";
+        }
+        if (state === "FAILED") {
+            return "Fallito";
+        }
+        if (state === "DISABLED") {
+            return "Disabilitato";
+        }
+        return "Pronto";
     }
 
     function createMonitoringCard(item) {
@@ -1873,6 +2060,12 @@
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         }).format(Number(amount));
+    }
+
+    function formatInteger(value) {
+        return new Intl.NumberFormat("it-IT", {
+            maximumFractionDigits: 0
+        }).format(Number(value || 0));
     }
 
     function createElement(tagName, className, text) {
