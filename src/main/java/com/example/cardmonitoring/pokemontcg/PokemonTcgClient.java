@@ -37,22 +37,28 @@ public class PokemonTcgClient {
 	}
 
 	public List<PokemonTcgCardCandidate> searchCards(String query) {
+		return searchCards(query, 20);
+	}
+
+	public List<PokemonTcgCardCandidate> searchCards(String query, int pageSize) {
 		if (!StringUtils.hasText(query)) {
 			LOGGER.info("Pokemon TCG card search skipped: blank query");
 			return List.of();
 		}
+		int safePageSize = Math.max(1, Math.min(pageSize, 250));
 		for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
 			try {
-				LOGGER.info("Calling Pokemon TCG cards API: query={}, attempt={}", query, attempt);
+				LOGGER.info("Calling Pokemon TCG cards API: query={}, pageSize={}, attempt={}",
+						query, safePageSize, attempt);
 				String responseBody = get(uriBuilder -> uriBuilder
 						.path("/cards")
 						.queryParam("q", query)
-						.queryParam("pageSize", 20)
+						.queryParam("pageSize", safePageSize)
 						.queryParam("select", "id,name,number,set,images")
 						.build());
 				List<PokemonTcgCardCandidate> cards = responseParser.parseCards(responseBody);
-				LOGGER.info("Pokemon TCG cards API completed: query={}, parsedCandidates={}, attempt={}",
-						query, cards.size(), attempt);
+				LOGGER.info("Pokemon TCG cards API completed: query={}, parsedCandidates={}, pageSize={}, attempt={}",
+						query, cards.size(), safePageSize, attempt);
 				return cards;
 			}
 			catch (RestClientException exception) {

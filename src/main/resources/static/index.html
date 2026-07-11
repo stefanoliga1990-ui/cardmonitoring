@@ -274,6 +274,34 @@
                     <button id="retryExpansionsButton" class="text-button" type="button" hidden>
                         Riprova il caricamento
                     </button>
+
+                    <section class="card-lookup-panel" aria-labelledby="cardLookupTitle">
+                        <div class="card-lookup-heading">
+                            <div>
+                                <h3 id="cardLookupTitle">Non conosci il set?</h3>
+                                <p>Cerca per nome e numero: ti mostriamo i possibili set con l'immagine della carta.</p>
+                            </div>
+                        </div>
+                        <div class="card-lookup-fields">
+                            <label>
+                                <span>Nome carta</span>
+                                <input id="cardLookupName" type="text" autocomplete="off" placeholder="es. Charizard">
+                            </label>
+                            <label>
+                                <span>N°</span>
+                                <input id="cardLookupNumber" type="text" autocomplete="off" placeholder="es. 4 oppure TG01">
+                            </label>
+                            <label>
+                                <span>DI</span>
+                                <input id="cardLookupTotal" type="text" autocomplete="off" placeholder="es. 102">
+                            </label>
+                            <button id="cardLookupButton" class="button button--secondary" type="button">
+                                Cerca carta
+                            </button>
+                        </div>
+                        <p id="cardLookupStatus" class="field-help" role="status" aria-live="polite"></p>
+                        <div id="cardLookupResults" class="card-lookup-results" aria-label="Possibili set della carta"></div>
+                    </section>
                 </section>
 
                 <section class="wizard-step" data-step="2" aria-labelledby="step-2-title" hidden>

@@ -79,12 +79,20 @@ class PokemonTcgResponseParser {
 		String id = optionalText(item, "id");
 		String name = optionalText(item, "name");
 		String number = optionalText(item, "number");
-		String setName = optionalText(item.get("set"), "name");
+		JsonNode set = item.get("set");
+		String setId = optionalText(set, "id");
+		String setName = optionalText(set, "name");
+		String setSeries = optionalText(set, "series");
+		Integer setPrintedTotal = optionalInteger(set, "printedTotal");
+		Integer setTotal = optionalInteger(set, "total");
+		String setReleaseDate = optionalText(set, "releaseDate");
 		JsonNode images = item.get("images");
 		String smallImage = optionalText(images, "small");
 		String largeImage = optionalText(images, "large");
 		if (id != null && name != null && number != null && (smallImage != null || largeImage != null)) {
-			return Optional.of(new PokemonTcgCardCandidate(id, name, number, setName, smallImage, largeImage));
+			return Optional.of(new PokemonTcgCardCandidate(
+					id, name, number, setId, setName, setSeries, setPrintedTotal, setTotal, setReleaseDate,
+					smallImage, largeImage));
 		}
 		return Optional.empty();
 	}
@@ -98,5 +106,16 @@ class PokemonTcgResponseParser {
 			return null;
 		}
 		return value.asText().trim();
+	}
+
+	private static Integer optionalInteger(JsonNode object, String fieldName) {
+		if (object == null || !object.isObject()) {
+			return null;
+		}
+		JsonNode value = object.get(fieldName);
+		if (value == null || !value.isIntegralNumber()) {
+			return null;
+		}
+		return value.asInt();
 	}
 }

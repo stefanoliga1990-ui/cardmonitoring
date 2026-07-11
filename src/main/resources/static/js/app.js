@@ -58,7 +58,8 @@
         activating: false,
         calculation: null,
         blueprintRequest: 0,
-        expansionsLoaded: false
+        expansionsLoaded: false,
+        identifyingCard: false
     };
 
     const dashboardState = {
@@ -107,6 +108,12 @@
         status: document.querySelector("#globalStatus"),
         expansionSelect: document.querySelector("#expansionSelect"),
         blueprintSelect: document.querySelector("#blueprintSelect"),
+        cardLookupName: document.querySelector("#cardLookupName"),
+        cardLookupNumber: document.querySelector("#cardLookupNumber"),
+        cardLookupTotal: document.querySelector("#cardLookupTotal"),
+        cardLookupButton: document.querySelector("#cardLookupButton"),
+        cardLookupStatus: document.querySelector("#cardLookupStatus"),
+        cardLookupResults: document.querySelector("#cardLookupResults"),
         languageSelect: document.querySelector("#languageSelect"),
         conditionChoices: document.querySelector("#conditionChoices"),
         retryExpansions: document.querySelector("#retryExpansionsButton"),
@@ -185,6 +192,17 @@
         elements.showRegister.addEventListener("click", () => switchAuthMode("register"));
         elements.logout.addEventListener("click", logout);
         elements.expansionSelect.addEventListener("change", handleExpansionChange);
+        elements.cardLookupButton.addEventListener("click", identifyCard);
+        elements.cardLookupNumber.addEventListener("change", splitLookupNumber);
+        [elements.cardLookupName, elements.cardLookupNumber, elements.cardLookupTotal].forEach((input) => {
+            input.addEventListener("keydown", (event) => {
+                if (event.key === "Enter") {
+                    event.preventDefault();
+                    identifyCard();
+                }
+            });
+        });
+        elements.cardLookupResults.addEventListener("click", selectIdentifiedCard);
         elements.blueprintSelect.addEventListener("change", () => {
             state.blueprintId = numberOrNull(elements.blueprintSelect.value);
             updateActions();
@@ -535,6 +553,169 @@
         select.disabled = disabled;
     }
 
+    function splitLookupNumber() {
+        const value = elements.cardLookupNumber.value.trim();
+        if (!value.includes("/") || elements.cardLookupTotal.value.trim() !== "") {
+            return;
+        }
+        const parts = value.split("/");
+        if (parts.length === 2 && parts[0].trim() !== "" && parts[1].trim() !== "") {
+            elements.cardLookupNumber.value = parts[0].trim();
+            elements.cardLookupTotal.value = parts[1].trim();
+        }
+    }
+
+    async function identifyCard() {
+        if (state.identifyingCard) {
+            return;
+        }
+        splitLookupNumber();
+        const name = elements.cardLookupName.value.trim();
+        const number = elements.cardLookupNumber.value.trim();
+        const total = elements.cardLookupTotal.value.trim();
+        elements.cardLookupResults.replaceChildren();
+        if (name.length < 2 || number.length === 0) {
+            setCardLookupStatus("Inserisci almeno nome carta e N°.", "error");
+            return;
+        }
+
+        state.identifyingCard = true;
+        elements.cardLookupButton.disabled = true;
+        elements.cardLookupButton.textContent = "Ricerca…";
+        setCardLookupStatus("Cerchiamo i possibili set e le immagini della carta…", "info");
+        showLoadingOverlay(
+            "Ricerca carta",
+            "Cerchiamo i possibili set e recuperiamo le immagini della carta.");
+
+        try {
+            const candidates = await requestJson("/api/card-identification/candidates", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, number, total })
+            });
+            renderCardLookupResults(Array.isArray(candidates) ? candidates : []);
+        }
+        catch (error) {
+            setCardLookupStatus(errorMessage(error, "Ricerca della carta non riuscita."), "error");
+        }
+        finally {
+            state.identifyingCard = false;
+            elements.cardLookupButton.disabled = false;
+            elements.cardLookupButton.textContent = "Cerca carta";
+            hideLoadingOverlay();
+        }
+    }
+
+    function renderCardLookupResults(candidates) {
+        elements.cardLookupResults.replaceChildren();
+        if (candidates.length === 0) {
+            setCardLookupStatus("Nessun candidato trovato. Prova a controllare nome o numero.", "error");
+            return;
+        }
+        setCardLookupStatus(
+            `${candidates.length} ${candidates.length === 1 ? "candidato trovato" : "candidati trovati"}.`,
+            "info"
+        );
+        candidates.forEach((candidate) => {
+            const card = createElement("article", "card-lookup-result");
+            card.dataset.selectable = String(candidate.selectable);
+
+            const image = createElement("div", "card-image-preview card-lookup-image");
+            renderCardImage(image, {
+                cardName: candidate.cardName,
+                cardVersion: candidate.displayNumber,
+                imageUrlSmall: candidate.imageUrlSmall,
+                imageUrlLarge: candidate.imageUrlLarge
+            }, "small");
+
+            const details = createElement("div", "card-lookup-details");
+            details.append(
+                createElement("strong", "", candidate.cardName),
+                createElement("span", "", `${candidate.displayNumber} · ${candidate.pokemonTcgSetName || "Set non disponibile"}`)
+            );
+            if (candidate.pokemonTcgSetSeries || candidate.pokemonTcgSetReleaseDate) {
+                details.append(createElement(
+                    "small",
+                    "",
+                    [candidate.pokemonTcgSetSeries, candidate.pokemonTcgSetReleaseDate].filter(Boolean).join(" · ")
+                ));
+            }
+            details.append(createElement(
+                "small",
+                candidate.selectable ? "card-lookup-match is-selectable" : "card-lookup-match",
+                candidate.selectable
+                    ? `Collegata a CardTrader: ${candidate.cardTraderExpansionName}`
+                    : "Immagine trovata, ma set non collegato con sicurezza a CardTrader"
+            ));
+
+            const button = createElement(
+                "button",
+                candidate.selectable ? "button button--primary" : "button button--secondary",
+                candidate.selectable ? "Usa questa carta" : "Non selezionabile"
+            );
+            button.type = "button";
+            button.disabled = !candidate.selectable;
+            if (candidate.selectable) {
+                button.dataset.action = "select-identified-card";
+                button.dataset.expansionId = String(candidate.cardTraderExpansionId);
+                button.dataset.blueprintId = String(candidate.cardTraderBlueprintId);
+            }
+
+            card.append(image, details, button);
+            elements.cardLookupResults.append(card);
+        });
+    }
+
+    async function selectIdentifiedCard(event) {
+        const button = event.target.closest('button[data-action="select-identified-card"]');
+        if (!button) {
+            return;
+        }
+        const expansionId = numberOrNull(button.dataset.expansionId);
+        const blueprintId = numberOrNull(button.dataset.blueprintId);
+        if (expansionId === null || blueprintId === null) {
+            setCardLookupStatus("Candidato non valido. Riprova la ricerca.", "error");
+            return;
+        }
+
+        const originalLabel = button.textContent;
+        button.disabled = true;
+        button.textContent = "Selezione…";
+        try {
+            if (!state.expansionsLoaded && !state.loadingExpansions) {
+                await loadExpansions();
+            }
+            state.expansionId = expansionId;
+            elements.expansionSelect.value = String(expansionId);
+            await loadBlueprints(expansionId);
+            state.blueprintId = blueprintId;
+            elements.blueprintSelect.value = String(blueprintId);
+            if (selectedExpansion() === undefined || selectedBlueprint() === undefined) {
+                state.blueprintId = null;
+                setCardLookupStatus("La carta è stata trovata, ma non è più disponibile nel catalogo CardTrader.", "error");
+                updateActions();
+                return;
+            }
+            state.step = 3;
+            clearStatus();
+            setCardLookupStatus("Carta selezionata. Ora scegli lingua, condizione e variante.", "info");
+            renderStep();
+        }
+        catch (error) {
+            setCardLookupStatus(errorMessage(error, "Selezione del candidato non riuscita."), "error");
+        }
+        finally {
+            button.disabled = false;
+            button.textContent = originalLabel;
+        }
+    }
+
+    function setCardLookupStatus(message, type) {
+        elements.cardLookupStatus.textContent = message;
+        elements.cardLookupStatus.classList.toggle("is-error", type === "error");
+        elements.cardLookupStatus.classList.toggle("is-info", type === "info");
+    }
+
     function goNext() {
         if (!isStepValid(state.step)) {
             setStatus(validationMessage(state.step), "error");
@@ -854,6 +1035,9 @@
         });
         populateExpansionSelect();
         resetBlueprintSelect("Seleziona prima un set");
+        elements.cardLookupResults.replaceChildren();
+        elements.cardLookupStatus.textContent = "";
+        elements.cardLookupStatus.classList.remove("is-error", "is-info");
         elements.successPanel.hidden = true;
         elements.calculationPanel.hidden = true;
         elements.form.hidden = false;
