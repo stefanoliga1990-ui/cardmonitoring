@@ -1172,6 +1172,7 @@ body.is-loading-overlay-visible {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
+    flex-wrap: wrap;
     gap: 16px;
     padding: 18px 0;
     border-top: 1px solid var(--line);
@@ -1196,6 +1197,11 @@ body.is-loading-overlay-visible {
     font-size: 1.9rem;
     line-height: 1;
     letter-spacing: -0.045em;
+}
+
+.monitoring-price--purchase strong,
+.metric-card--purchase strong {
+    color: #2563eb;
 }
 
 .monitoring-updated {
@@ -1228,6 +1234,7 @@ body.is-loading-overlay-visible {
 
 .monitoring-card-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
 }
 
@@ -1262,7 +1269,7 @@ body.is-loading-overlay-visible {
 
 .metric-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 14px;
     margin-bottom: 18px;
 }

@@ -64,6 +64,7 @@
     const dashboardState = {
         items: [],
         selectedMonitoringId: null,
+        detailMonitoring: null,
         chart: null,
         loading: false
     };
@@ -159,6 +160,7 @@
         newMonitoring: document.querySelector("#newMonitoringButton"),
         backToDashboard: document.querySelector("#backToDashboardButton"),
         detailRefresh: document.querySelector("#detailRefreshButton"),
+        detailPurchasePrice: document.querySelector("#detailPurchasePriceButton"),
         detailDeactivate: document.querySelector("#detailDeactivateButton"),
         detailImage: document.querySelector("#detailImage"),
         loadingOverlay: document.querySelector("#loadingOverlay"),
@@ -223,6 +225,7 @@
         elements.telegramUnlink.addEventListener("click", unlinkTelegram);
         elements.backToDashboard.addEventListener("click", showDashboard);
         elements.detailRefresh.addEventListener("click", () => refreshMonitoring(dashboardState.selectedMonitoringId, true));
+        elements.detailPurchasePrice.addEventListener("click", () => editPurchasePrice(dashboardState.selectedMonitoringId, true));
         elements.detailDeactivate.addEventListener("click", () => deactivateMonitoring(dashboardState.selectedMonitoringId));
         elements.monitoringGrid.addEventListener("click", handleMonitoringGridClick);
         window.addEventListener("popstate", () => {
@@ -1219,12 +1222,17 @@
             createElement("span", "", "Ultimo prezzo medio"),
             createElement("strong", "", observationPrice(latest, monitoring.currency))
         );
+        const purchasePrice = createElement("div", "monitoring-price monitoring-price--purchase");
+        purchasePrice.append(
+            createElement("span", "", "Prezzo acquisto"),
+            createElement("strong", "", purchasePriceLabel(monitoring))
+        );
         const updated = createElement(
             "span",
             "monitoring-updated",
             monitoring.lastCheckedAt ? `Aggiornato ${formatDateTime(monitoring.lastCheckedAt)}` : "Mai aggiornato"
         );
-        priceRow.append(price, updated);
+        priceRow.append(price, purchasePrice, updated);
 
         const method = createElement(
             "p",
@@ -1249,6 +1257,7 @@
         const actions = createElement("footer", "monitoring-card-actions");
         actions.append(
             actionButton("Dettaglio e grafico", "detail", monitoring.id, "button button--secondary"),
+            actionButton(monitoring.purchasePriceCents === null ? "Prezzo acquisto" : "Modifica acquisto", "purchase-price", monitoring.id, "button button--secondary"),
             actionButton("Aggiorna", "refresh", monitoring.id, "button button--primary"),
             actionButton("Disattiva", "deactivate", monitoring.id, "button button--danger")
         );
@@ -1280,6 +1289,9 @@
         else if (button.dataset.action === "refresh") {
             refreshMonitoring(monitoringId, false, button);
         }
+        else if (button.dataset.action === "purchase-price") {
+            editPurchasePrice(monitoringId, false);
+        }
         else if (button.dataset.action === "deactivate") {
             deactivateMonitoring(monitoringId);
         }
@@ -1292,6 +1304,7 @@
         }
         setActiveView("detail");
         elements.detailRefresh.disabled = true;
+        elements.detailPurchasePrice.disabled = true;
         elements.detailDeactivate.disabled = true;
         setDetailStatus("Caricamento del dettaglio…", "info");
 
@@ -1308,17 +1321,20 @@
         }
         finally {
             elements.detailRefresh.disabled = false;
+            elements.detailPurchasePrice.disabled = false;
             elements.detailDeactivate.disabled = false;
         }
     }
 
     function renderDetail(monitoring, observations) {
+        dashboardState.detailMonitoring = monitoring;
         const latest = latestObservation(observations);
         document.querySelector("#detailExpansion").textContent = `${monitoring.expansionName} · ${monitoring.expansionCode}`;
         document.querySelector("#detailTitle").textContent = monitoring.cardName;
         document.querySelector("#detailVersion").textContent = monitoring.cardVersion;
         renderCardImage(elements.detailImage, monitoring, "large");
         document.querySelector("#detailLatestPrice").textContent = observationPrice(latest, monitoring.currency);
+        document.querySelector("#detailPurchasePrice").textContent = purchasePriceLabel(monitoring);
         document.querySelector("#detailPriceSample").textContent = latest && latest.usedOffers > 0
             ? `${usedOffersLabel(latest.usedOffers)} su ${compatibleOffersLabel(latest.compatibleOffers)}`
             : "Nessuna offerta compatibile";
@@ -1338,11 +1354,11 @@
         errorPanel.hidden = !monitoring.lastError;
         document.querySelector("#detailErrorText").textContent = monitoring.lastError || "";
         document.querySelector("#observationCount").textContent = observationCountLabel(observations.length);
-        renderPriceChart(observations, monitoring.currency);
+        renderPriceChart(observations, monitoring.currency, monitoring.purchasePriceCents);
         document.querySelector("#detailTitle").focus({ preventScroll: true });
     }
 
-    function renderPriceChart(observations, currency) {
+    function renderPriceChart(observations, currency, purchasePriceCents) {
         if (dashboardState.chart !== null) {
             dashboardState.chart.destroy();
             dashboardState.chart = null;
@@ -1362,35 +1378,52 @@
 
         chartContainer.hidden = false;
         chartEmpty.hidden = true;
+        const datasets = [{
+            label: "Prezzo medio",
+            data: pricedObservations.map((observation) => Number(observation.averagePriceCents) / 100),
+            borderColor: "#d95f32",
+            backgroundColor: "rgba(217, 95, 50, 0.12)",
+            pointBackgroundColor: "#ffffff",
+            pointBorderColor: "#d95f32",
+            pointBorderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            borderWidth: 2,
+            fill: true,
+            tension: 0.25
+        }];
+
+        if (purchasePriceCents !== null && purchasePriceCents !== undefined) {
+            datasets.push({
+                label: "Prezzo acquisto",
+                data: pricedObservations.map(() => Number(purchasePriceCents) / 100),
+                borderColor: "#2563eb",
+                backgroundColor: "rgba(37, 99, 235, 0.08)",
+                pointRadius: 0,
+                pointHoverRadius: 0,
+                borderWidth: 2,
+                borderDash: [6, 5],
+                fill: false,
+                tension: 0
+            });
+        }
+
         const context = document.querySelector("#priceChart");
         dashboardState.chart = new Chart(context, {
             type: "line",
             data: {
                 labels: pricedObservations.map((observation) => formatChartDate(observation.observedAt)),
-                datasets: [{
-                    label: "Prezzo medio",
-                    data: pricedObservations.map((observation) => Number(observation.averagePriceCents) / 100),
-                    borderColor: "#d95f32",
-                    backgroundColor: "rgba(217, 95, 50, 0.12)",
-                    pointBackgroundColor: "#ffffff",
-                    pointBorderColor: "#d95f32",
-                    pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.25
-                }]
+                datasets
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 interaction: { intersect: false, mode: "index" },
                 plugins: {
-                    legend: { display: false },
+                    legend: { display: datasets.length > 1 },
                     tooltip: {
                         callbacks: {
-                            label: (tooltip) => `Media: ${formatAmount(tooltip.parsed.y, currency)}`
+                            label: (tooltip) => `${tooltip.dataset.label}: ${formatAmount(tooltip.parsed.y, currency)}`
                         }
                     }
                 },
@@ -1476,6 +1509,84 @@
         }
     }
 
+    async function editPurchasePrice(monitoringId, fromDetail) {
+        if (monitoringId === null) {
+            return;
+        }
+        const monitoring = fromDetail
+            ? dashboardState.detailMonitoring
+            : dashboardState.items.map((item) => item.monitoring).find((item) => item.id === monitoringId);
+        const currentValue = monitoring ? purchasePriceInputValue(monitoring) : "";
+        const value = window.prompt(
+            "Inserisci il prezzo di acquisto in euro. Lascia vuoto per rimuoverlo.",
+            currentValue
+        );
+        if (value === null) {
+            return;
+        }
+
+        let purchasePriceCents;
+        try {
+            purchasePriceCents = parsePurchasePriceCents(value);
+        }
+        catch (error) {
+            const message = errorMessage(error, "Prezzo di acquisto non valido.");
+            if (fromDetail) {
+                setDetailStatus(message, "error");
+            }
+            else {
+                setDashboardStatus(message, "error");
+            }
+            return;
+        }
+
+        const sourceButton = fromDetail
+            ? elements.detailPurchasePrice
+            : document.querySelector(`button[data-action="purchase-price"][data-monitoring-id="${monitoringId}"]`);
+        const originalLabel = sourceButton ? sourceButton.textContent : "";
+        if (sourceButton) {
+            sourceButton.disabled = true;
+            sourceButton.textContent = "Salvataggio…";
+        }
+
+        try {
+            await requestJson(`/api/monitorings/${monitoringId}/purchase-price`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ purchasePriceCents })
+            });
+            if (fromDetail) {
+                await showDetail(monitoringId, false);
+                setDetailStatus(
+                    purchasePriceCents === null ? "Prezzo di acquisto rimosso." : "Prezzo di acquisto salvato.",
+                    "info"
+                );
+            }
+            else {
+                await loadDashboard();
+                setDashboardStatus(
+                    purchasePriceCents === null ? "Prezzo di acquisto rimosso." : "Prezzo di acquisto salvato.",
+                    "info"
+                );
+            }
+        }
+        catch (error) {
+            const message = errorMessage(error, "Salvataggio del prezzo di acquisto non riuscito.");
+            if (fromDetail) {
+                setDetailStatus(message, "error");
+            }
+            else {
+                setDashboardStatus(message, "error");
+            }
+        }
+        finally {
+            if (sourceButton) {
+                sourceButton.disabled = false;
+                sourceButton.textContent = originalLabel;
+            }
+        }
+    }
+
     function latestObservation(observations) {
         return observations.length > 0 ? observations[observations.length - 1] : null;
     }
@@ -1484,6 +1595,37 @@
         return observation && observation.averagePriceCents !== null
             ? formatCents(observation.averagePriceCents, observation.currency || fallbackCurrency)
             : "Nessun dato";
+    }
+
+    function purchasePriceLabel(monitoring) {
+        return monitoring.purchasePriceCents !== null && monitoring.purchasePriceCents !== undefined
+            ? formatCents(monitoring.purchasePriceCents, monitoring.currency)
+            : "Non impostato";
+    }
+
+    function purchasePriceInputValue(monitoring) {
+        if (monitoring.purchasePriceCents === null || monitoring.purchasePriceCents === undefined) {
+            return "";
+        }
+        const cents = String(Math.abs(monitoring.purchasePriceCents % 100)).padStart(2, "0");
+        const euros = Math.trunc(monitoring.purchasePriceCents / 100);
+        return `${euros},${cents}`;
+    }
+
+    function parsePurchasePriceCents(value) {
+        const normalized = String(value || "").trim().replace(",", ".");
+        if (normalized === "") {
+            return null;
+        }
+        if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) {
+            throw new Error("Inserisci un importo valido, ad esempio 120 oppure 120,50.");
+        }
+        const [euros, rawCents = ""] = normalized.split(".");
+        const purchasePriceCents = (Number(euros) * 100) + Number(rawCents.padEnd(2, "0"));
+        if (!Number.isSafeInteger(purchasePriceCents) || purchasePriceCents <= 0) {
+            throw new Error("Il prezzo di acquisto deve essere maggiore di zero.");
+        }
+        return purchasePriceCents;
     }
 
     function confidenceLabel(confidence) {

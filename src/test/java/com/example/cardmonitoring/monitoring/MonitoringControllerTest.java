@@ -5,6 +5,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -82,6 +83,8 @@ class MonitoringControllerTest {
 		when(monitoringService.findById(42L, 7L)).thenReturn(monitoring);
 		when(monitoringService.refresh(42L, 7L)).thenReturn(observation);
 		when(monitoringService.findObservations(42L, 7L)).thenReturn(List.of(observation));
+		when(monitoringService.updatePurchasePrice(42L, 7L, new UpdatePurchasePriceRequest(12_345L)))
+				.thenReturn(monitoringResponse(12_345L));
 
 		mockMvc.perform(get("/api/monitorings").principal(authentication()))
 				.andExpect(status().isOk())
@@ -95,6 +98,16 @@ class MonitoringControllerTest {
 		mockMvc.perform(get("/api/monitorings/7/observations").principal(authentication()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$[0].currency").value("EUR"));
+		mockMvc.perform(put("/api/monitorings/7/purchase-price")
+				.principal(authentication())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{
+						  "purchasePriceCents": 12345
+						}
+						"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.purchasePriceCents").value(12_345));
 		mockMvc.perform(delete("/api/monitorings/7").principal(authentication()))
 				.andExpect(status().isNoContent());
 
@@ -136,6 +149,10 @@ class MonitoringControllerTest {
 	}
 
 	private static MonitoringResponse monitoringResponse() {
+		return monitoringResponse(null);
+	}
+
+	private static MonitoringResponse monitoringResponse(Long purchasePriceCents) {
 		return new MonitoringResponse(
 				7L,
 				111151,
@@ -156,6 +173,7 @@ class MonitoringControllerTest {
 				false,
 				true,
 				"EUR",
+				purchasePriceCents,
 				Instant.parse("2026-07-03T09:59:00Z"),
 				Instant.parse("2026-07-03T10:00:00Z"),
 				null);

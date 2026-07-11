@@ -44,10 +44,17 @@ class MonitoringPersistenceServiceTest {
 		long monitoringId = created.monitoring().id();
 
 		assertThat(created.monitoring().active()).isTrue();
+		assertThat(created.monitoring().purchasePriceCents()).isNull();
 		assertThat(created.monitoring().lastCheckedAt()).isEqualTo(initialCheck);
 		assertThat(created.initialObservation().averagePriceCents()).isEqualByComparingTo("10100.00");
 		assertThat(service.findActive(ownerId)).extracting(MonitoringResponse::id).containsExactly(monitoringId);
 		assertThat(service.findRefreshTarget(ownerId, monitoringId).criteria()).isEqualTo(CRITERIA);
+		assertThat(service.updatePurchasePrice(ownerId, monitoringId, 12_345L).purchasePriceCents()).isEqualTo(12_345L);
+		assertThat(service.findById(ownerId, monitoringId).purchasePriceCents()).isEqualTo(12_345L);
+		assertThat(service.updatePurchasePrice(ownerId, monitoringId, null).purchasePriceCents()).isNull();
+		assertThat(service.findById(ownerId, monitoringId).purchasePriceCents()).isNull();
+		assertThatThrownBy(() -> service.updatePurchasePrice(ownerId, monitoringId, 0L))
+				.isInstanceOf(IllegalArgumentException.class);
 
 		Instant secondCheck = Instant.parse("2026-07-03T09:00:00Z");
 		service.saveObservation(ownerId, monitoringId, secondCheck, result("10200.00", ConfidenceLevel.HIGH));

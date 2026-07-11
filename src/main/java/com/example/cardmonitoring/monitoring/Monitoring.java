@@ -87,6 +87,9 @@ public class Monitoring {
 	@Column(nullable = false, length = 3)
 	private String currency;
 
+	@Column(name = "purchase_price_cents")
+	private Long purchasePriceCents;
+
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt;
 
@@ -140,6 +143,13 @@ public class Monitoring {
 
 	public void deactivate() {
 		this.active = false;
+	}
+
+	public void updatePurchasePriceCents(Long purchasePriceCents) {
+		if (purchasePriceCents != null && purchasePriceCents <= 0) {
+			throw new IllegalArgumentException("purchasePriceCents must be positive or null");
+		}
+		this.purchasePriceCents = purchasePriceCents;
 	}
 
 	public PriceCriteria toPriceCriteria() {
@@ -233,6 +243,10 @@ public class Monitoring {
 
 	public String getCurrency() {
 		return currency;
+	}
+
+	public Long getPurchasePriceCents() {
+		return purchasePriceCents;
 	}
 
 	public Instant getCreatedAt() {

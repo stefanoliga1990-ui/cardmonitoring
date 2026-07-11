@@ -156,6 +156,13 @@ public class MonitoringPersistenceService {
 		requireOwnedMonitoring(ownerId, monitoringId).deactivate();
 	}
 
+	@Transactional
+	public MonitoringResponse updatePurchasePrice(long ownerId, long monitoringId, Long purchasePriceCents) {
+		Monitoring monitoring = requireOwnedMonitoring(ownerId, monitoringId);
+		monitoring.updatePurchasePriceCents(purchasePriceCents);
+		return MonitoringResponse.from(monitoring);
+	}
+
 	@Transactional(readOnly = true)
 	public List<PriceObservationResponse> findObservations(long ownerId, long monitoringId) {
 		requireOwnedMonitoring(ownerId, monitoringId);

@@ -48,6 +48,7 @@ class MonitoringPersistenceTest {
 				"https://images.test/small.png", "https://images.test/large.png", "POKEMON_TCG_API",
 				CRITERIA, "EUR");
 		monitoring.recordSuccessfulCheck(checkedAt);
+		monitoring.updatePurchasePriceCents(12_345L);
 		monitoring = monitoringRepository.saveAndFlush(monitoring);
 
 		PriceCalculationResult result = new PriceCalculationResult(
@@ -67,6 +68,7 @@ class MonitoringPersistenceTest {
 		assertThat(reloaded.getImageUrlSmall()).isEqualTo("https://images.test/small.png");
 		assertThat(reloaded.getImageUrlLarge()).isEqualTo("https://images.test/large.png");
 		assertThat(reloaded.getImageSource()).isEqualTo("POKEMON_TCG_API");
+		assertThat(reloaded.getPurchasePriceCents()).isEqualTo(12_345L);
 		assertThat(reloaded.getLanguage()).isEqualTo("it");
 		assertThat(reloaded.getCondition()).isEqualTo("Near Mint");
 		assertThat(reloaded.isFirstEdition()).isFalse();

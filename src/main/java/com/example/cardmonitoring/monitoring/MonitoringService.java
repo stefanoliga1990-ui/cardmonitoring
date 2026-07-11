@@ -101,6 +101,13 @@ public class MonitoringService {
 		persistenceService.deactivate(ownerId, monitoringId);
 	}
 
+	public MonitoringResponse updatePurchasePrice(long ownerId, long monitoringId, UpdatePurchasePriceRequest request) {
+		if (request == null) {
+			throw new IllegalArgumentException("request is required");
+		}
+		return persistenceService.updatePurchasePrice(ownerId, monitoringId, request.purchasePriceCents());
+	}
+
 	public PriceObservationResponse refresh(long ownerId, long monitoringId) {
 		return refreshInternal(monitoringId, ownerId);
 	}

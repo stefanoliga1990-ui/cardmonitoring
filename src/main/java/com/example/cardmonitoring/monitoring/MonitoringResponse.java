@@ -22,6 +22,7 @@ public record MonitoringResponse(
 		boolean altered,
 		boolean active,
 		String currency,
+		Long purchasePriceCents,
 		Instant createdAt,
 		Instant lastCheckedAt,
 		String lastError) {
@@ -47,6 +48,7 @@ public record MonitoringResponse(
 				monitoring.isAltered(),
 				monitoring.isActive(),
 				monitoring.getCurrency(),
+				monitoring.getPurchasePriceCents(),
 				monitoring.getCreatedAt(),
 				monitoring.getLastCheckedAt(),
 				monitoring.getLastError());
