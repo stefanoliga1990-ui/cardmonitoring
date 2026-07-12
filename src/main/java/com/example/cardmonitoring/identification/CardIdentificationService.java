@@ -11,18 +11,25 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import com.example.cardmonitoring.catalog.CatalogBlueprint;
+import com.example.cardmonitoring.catalog.CatalogCard;
 import com.example.cardmonitoring.catalog.CatalogExpansion;
 import com.example.cardmonitoring.catalog.CatalogService;
+import com.example.cardmonitoring.pokemontcg.CardImage;
+import com.example.cardmonitoring.pokemontcg.CardImageService;
 import com.example.cardmonitoring.pokemontcg.PokemonTcgCardCandidate;
 import com.example.cardmonitoring.pokemontcg.PokemonTcgClient;
 
 @Service
 public class CardIdentificationService {
 
+	private static final Logger LOGGER = LoggerFactory.getLogger(CardIdentificationService.class);
+	private static final String IMAGE_SOURCE = "POKEMON_TCG_API";
 	private static final int PRIMARY_SEARCH_LIMIT = 80;
 	private static final int FALLBACK_SEARCH_LIMIT = 120;
 	private static final Duration CACHE_TTL = Duration.ofHours(6);
@@ -32,11 +39,16 @@ public class CardIdentificationService {
 
 	private final PokemonTcgClient pokemonTcgClient;
 	private final CatalogService catalogService;
+	private final CardImageService cardImageService;
 	private final Map<SearchInput, CacheEntry<List<CardIdentificationCandidate>>> cache = new LinkedHashMap<>();
 
-	public CardIdentificationService(PokemonTcgClient pokemonTcgClient, CatalogService catalogService) {
+	public CardIdentificationService(
+			PokemonTcgClient pokemonTcgClient,
+			CatalogService catalogService,
+			CardImageService cardImageService) {
 		this.pokemonTcgClient = pokemonTcgClient;
 		this.catalogService = catalogService;
+		this.cardImageService = cardImageService;
 	}
 
 	public synchronized List<CardIdentificationCandidate> findCandidates(CardIdentificationRequest request) {
@@ -65,8 +77,49 @@ public class CardIdentificationService {
 				.map(CardIdentificationCandidateMatch::candidate)
 				.toList();
 
+		cacheSelectableCandidateImages(matches);
 		cache.put(input, new CacheEntry<>(matches, now.plus(CACHE_TTL)));
 		return matches;
+	}
+
+	private void cacheSelectableCandidateImages(List<CardIdentificationCandidate> candidates) {
+		candidates.stream()
+				.filter(CardIdentificationCandidate::selectable)
+				.forEach(this::cacheCandidateImage);
+	}
+
+	private void cacheCandidateImage(CardIdentificationCandidate candidate) {
+		if (candidate.cardTraderExpansionId() == null || candidate.cardTraderBlueprintId() == null) {
+			return;
+		}
+		Optional<CollectorNumber> collectorNumber = collectorNumber(candidate.cardTraderBlueprintVersion());
+		if (collectorNumber.isEmpty()) {
+			return;
+		}
+		CardImage image = new CardImage(
+				candidate.imageUrlSmall(),
+				candidate.imageUrlLarge(),
+				IMAGE_SOURCE,
+				candidate.pokemonTcgCardId());
+		if (!image.hasImage()) {
+			return;
+		}
+		CatalogCard card = new CatalogCard(
+				candidate.cardTraderBlueprintId(),
+				candidate.cardTraderBlueprintName(),
+				candidate.cardTraderBlueprintVersion(),
+				candidate.cardTraderExpansionId(),
+				candidate.cardTraderExpansionName(),
+				candidate.cardTraderExpansionCode());
+		try {
+			cardImageService.cacheResolvedImage(card, collectorNumber.get().number(), image);
+		}
+		catch (RuntimeException exception) {
+			LOGGER.warn(
+					"Card identification image cache save failed: blueprintId={}, expansionId={}, pokemonTcgCardId={}, error={}",
+					candidate.cardTraderBlueprintId(), candidate.cardTraderExpansionId(),
+					candidate.pokemonTcgCardId(), exception.getMessage());
+		}
 	}
 
 	private List<PokemonTcgCardCandidate> searchPokemonTcgCandidates(SearchInput input) {

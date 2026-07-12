@@ -57,6 +57,30 @@ public class CardImageService {
 		return resolvedImage.map(image -> saveNewImage(card, collectorNumber, image, now));
 	}
 
+	public Optional<CardImage> cacheResolvedImage(CatalogCard card, String collectorNumber, CardImage image) {
+		if (image == null || !image.hasImage() || !StringUtils.hasText(collectorNumber)) {
+			LOGGER.info(
+					"Card image cache save skipped: blueprintId={}, expansionId={}, hasImage={}, collectorNumberPresent={}",
+					card.blueprintId(), card.expansionId(), image != null && image.hasImage(),
+					StringUtils.hasText(collectorNumber));
+			return Optional.empty();
+		}
+		Instant now = Instant.now();
+		String normalizedCollectorNumber = normalizeNumber(collectorNumber);
+		Optional<StoredCardImage> storedImage = findStoredImage(card, normalizedCollectorNumber);
+		if (storedImage.isPresent()) {
+			StoredCardImage existing = storedImage.get();
+			existing.refresh(card, normalizedCollectorNumber, image, now);
+			cardImageRepository.save(existing);
+			LOGGER.info(
+					"Card image cached from resolved candidate: id={}, blueprintId={}, expansionId={}, collectorNumber={}, imageSource={}",
+					existing.getId(), card.blueprintId(), card.expansionId(), normalizedCollectorNumber,
+					image.source());
+			return Optional.of(existing.toCardImage());
+		}
+		return Optional.of(saveNewImage(card, normalizedCollectorNumber, image, now));
+	}
+
 	private Optional<CardImage> resolveStoredImage(
 			CatalogCard card,
 			String collectorNumber,

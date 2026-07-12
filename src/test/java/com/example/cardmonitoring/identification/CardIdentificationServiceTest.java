@@ -1,6 +1,8 @@
 package com.example.cardmonitoring.identification;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -14,8 +16,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.example.cardmonitoring.catalog.CatalogBlueprint;
+import com.example.cardmonitoring.catalog.CatalogCard;
 import com.example.cardmonitoring.catalog.CatalogExpansion;
 import com.example.cardmonitoring.catalog.CatalogService;
+import com.example.cardmonitoring.pokemontcg.CardImage;
+import com.example.cardmonitoring.pokemontcg.CardImageService;
 import com.example.cardmonitoring.pokemontcg.PokemonTcgCardCandidate;
 import com.example.cardmonitoring.pokemontcg.PokemonTcgClient;
 
@@ -28,11 +33,14 @@ class CardIdentificationServiceTest {
 	@Mock
 	private CatalogService catalogService;
 
+	@Mock
+	private CardImageService cardImageService;
+
 	private CardIdentificationService service;
 
 	@BeforeEach
 	void setUp() {
-		service = new CardIdentificationService(pokemonTcgClient, catalogService);
+		service = new CardIdentificationService(pokemonTcgClient, catalogService, cardImageService);
 	}
 
 	@Test
@@ -55,6 +63,14 @@ class CardIdentificationServiceTest {
 			assertThat(candidate.cardTraderBlueprintId()).isEqualTo(111151);
 			assertThat(candidate.imageUrlSmall()).isEqualTo("https://images.test/base1-4-small.png");
 		});
+		verify(cardImageService).cacheResolvedImage(
+				new CatalogCard(111151, "Charizard", "Holo Rare | 4/102", 1472, "Base Set", "bs"),
+				"4",
+				new CardImage(
+						"https://images.test/base1-4-small.png",
+						"https://images.test/base1-4-large.png",
+						"POKEMON_TCG_API",
+						"base1-4"));
 	}
 
 	@Test
@@ -112,6 +128,7 @@ class CardIdentificationServiceTest {
 			assertThat(candidate.cardTraderBlueprintId()).isNull();
 			assertThat(candidate.imageUrlSmall()).isEqualTo("https://images.test/base1-12-small.png");
 		});
+		verify(cardImageService, never()).cacheResolvedImage(any(CatalogCard.class), any(), any(CardImage.class));
 	}
 
 	@Test
@@ -128,6 +145,7 @@ class CardIdentificationServiceTest {
 
 		verify(pokemonTcgClient).searchCards("name:\"CHARIZARD\" number:4", 80);
 		verify(pokemonTcgClient, never()).searchCards("name:\"CHARIZARD\"", 120);
+		verify(cardImageService).cacheResolvedImage(any(CatalogCard.class), eq("4"), any(CardImage.class));
 	}
 
 	private static PokemonTcgCardCandidate candidate(
