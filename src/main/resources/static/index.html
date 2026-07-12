@@ -398,6 +398,23 @@
                             </div>
                             <span class="collapsible-icon" aria-hidden="true">⌄</span>
                         </button>
+                        <div id="gradingDetailsPanel" class="grading-details-panel" hidden>
+                            <label for="gradingCompanySelect">
+                                Casa di grading
+                                <select id="gradingCompanySelect" name="gradingCompany">
+                                    <option value="">Seleziona una casa</option>
+                                </select>
+                            </label>
+                            <label for="gradingGradeSelect">
+                                Voto
+                                <select id="gradingGradeSelect" name="gradingGrade">
+                                    <option value="">Seleziona un voto</option>
+                                </select>
+                            </label>
+                            <p>
+                                CardTrader espone solo “gradata”: casa e voto vengono verificati leggendo la descrizione reale dell’inserzione.
+                            </p>
+                        </div>
                     </section>
                 </section>
 
@@ -417,23 +434,7 @@
                             <input id="reverseInput" name="reverse" type="checkbox">
                             <span class="switch" aria-hidden="true"></span>
                         </label>
-                        <div id="gradingDetailsPanel" class="grading-details-panel" hidden>
-                            <label for="gradingCompanySelect">
-                                Casa di grading
-                                <select id="gradingCompanySelect" name="gradingCompany">
-                                    <option value="">Seleziona una casa</option>
-                                </select>
-                            </label>
-                            <label for="gradingGradeSelect">
-                                Voto
-                                <select id="gradingGradeSelect" name="gradingGrade">
-                                    <option value="">Seleziona un voto</option>
-                                </select>
-                            </label>
-                            <p>
-                                CardTrader espone solo “gradata”: casa e voto vengono verificati leggendo la descrizione reale dell’inserzione.
-                            </p>
-                        </div>
+
                         <label class="switch-row" for="signedInput">
                             <span><strong>Firmata</strong><small>Carta con firma</small></span>
                             <input id="signedInput" name="signed" type="checkbox">
