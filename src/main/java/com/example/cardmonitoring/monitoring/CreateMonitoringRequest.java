@@ -10,6 +10,8 @@ public record CreateMonitoringRequest(
 		boolean firstEdition,
 		boolean reverse,
 		boolean graded,
+		String gradingCompany,
+		String gradingGrade,
 		boolean signed,
 		boolean altered) {
 
@@ -22,6 +24,8 @@ public record CreateMonitoringRequest(
 				firstEdition,
 				reverse,
 				graded,
+				gradingCompany,
+				gradingGrade,
 				signed,
 				altered);
 	}

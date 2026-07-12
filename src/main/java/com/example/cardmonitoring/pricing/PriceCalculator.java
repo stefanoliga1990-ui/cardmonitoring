@@ -61,11 +61,19 @@ public class PriceCalculator {
 				usedOffers.size(),
 				confidenceFor(usedOffers.size()),
 				usedOffers.stream()
-						.map(offer -> new UsedMarketplaceOffer(
-								offer.id(),
-								offer.price().cents(),
-								offer.price().currency(),
-								offer.quantity()))
+						.map(offer -> {
+							GradingDetails grading = criteria.graded()
+									? GradingDescriptionParser.parse(offer.description()).orElse(null)
+									: null;
+							return new UsedMarketplaceOffer(
+									offer.id(),
+									offer.price().cents(),
+									offer.price().currency(),
+									offer.quantity(),
+									criteria.graded() ? offer.description() : null,
+									grading == null ? null : grading.company(),
+									grading == null ? null : grading.grade());
+						})
 						.toList());
 	}
 
@@ -78,8 +86,11 @@ public class PriceCalculator {
 				|| offer.onVacation()
 				|| offer.price() == null
 				|| offer.price().cents() < 0
-				|| !expectedCurrency.equals(offer.price().currency())
-				|| offer.graded() != criteria.graded()) {
+				|| !expectedCurrency.equals(offer.price().currency())) {
+			return false;
+		}
+
+		if (!isGradingCompatible(offer, criteria)) {
 			return false;
 		}
 
@@ -91,6 +102,22 @@ public class PriceCalculator {
 				&& Boolean.valueOf(criteria.reverse()).equals(properties.reverse())
 				&& Boolean.valueOf(criteria.signed()).equals(properties.signed())
 				&& Boolean.valueOf(criteria.altered()).equals(properties.altered());
+	}
+
+	private static boolean isGradingCompatible(CardTraderMarketplaceOffer offer, PriceCriteria criteria) {
+		if (offer.graded() != criteria.graded()) {
+			return false;
+		}
+		if (!criteria.graded()) {
+			return true;
+		}
+		if (criteria.gradingCompany() == null && criteria.gradingGrade() == null) {
+			return true;
+		}
+		GradingDetails grading = GradingDescriptionParser.parse(offer.description()).orElse(null);
+		return grading != null
+				&& criteria.gradingCompany().equals(grading.company())
+				&& criteria.gradingGrade().equals(grading.grade());
 	}
 
 	private static ConfidenceLevel confidenceFor(int usedOffers) {

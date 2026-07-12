@@ -106,7 +106,12 @@ public class TelegramScheduledNotificationService {
 			variants.add("Reverse");
 		}
 		if (target.graded()) {
-			variants.add("Gradata");
+			if (target.gradingCompany() != null && target.gradingGrade() != null) {
+				variants.add("Gradata " + gradingCompanyLabel(target.gradingCompany()) + " " + target.gradingGrade());
+			}
+			else {
+				variants.add("Gradata");
+			}
 		}
 		if (target.signed()) {
 			variants.add("Firmata");
@@ -152,6 +157,13 @@ public class TelegramScheduledNotificationService {
 			case "id" -> "Indonesiano";
 			case "th" -> "Thailandese";
 			default -> code;
+		};
+	}
+
+	private static String gradingCompanyLabel(String company) {
+		return switch (company) {
+			case "EUROPEAN_GRADING" -> "European Grading";
+			default -> company;
 		};
 	}
 }

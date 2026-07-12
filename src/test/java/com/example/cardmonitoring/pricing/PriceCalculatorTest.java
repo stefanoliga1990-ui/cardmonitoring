@@ -22,7 +22,7 @@ import com.example.cardmonitoring.cardtrader.PokemonCardProperties;
 class PriceCalculatorTest {
 
 	private static final PriceCriteria CRITERIA = new PriceCriteria(
-			111151, 1472, "it", "Near Mint", false, false, false, false, false);
+			111151, 1472, "it", "Near Mint", false, false, false, null, null, false, false);
 
 	private PriceCalculator calculator;
 
@@ -72,6 +72,39 @@ class PriceCalculatorTest {
 		assertThat(result.offersUsed())
 				.extracting(UsedMarketplaceOffer::priceCents)
 				.containsExactly(50L, 100L, 200L, 300L);
+	}
+
+	@Test
+	void filtersGradedOffersByCompanyAndGradeFromDescription() {
+		PriceCriteria criteria = new PriceCriteria(
+				111151, 1472, "it", "Near Mint", false, false, true, "PSA", "8", false, false);
+
+		PriceCalculationResult result = calculator.calculate(criteria, List.of(
+				offer(1, 10_000).graded(true).description("[PSA 8.0]").build(),
+				offer(2, 9_000).graded(true).description("[PSA 9.0]").build(),
+				offer(3, 8_000).graded(true).description("[BGS 8.0]").build(),
+				offer(4, 7_000).graded(true).description("Graded - 8.0 NM-MT").build()));
+
+		assertThat(result.compatibleOffers()).isEqualTo(1);
+		assertThat(result.offersUsed()).singleElement()
+				.satisfies(offer -> {
+					assertThat(offer.offerId()).isEqualTo(1L);
+					assertThat(offer.description()).isEqualTo("[PSA 8.0]");
+					assertThat(offer.gradingCompany()).isEqualTo("PSA");
+					assertThat(offer.gradingGrade()).isEqualTo("8");
+				});
+	}
+
+	@Test
+	void keepsLegacyGenericGradedCriteriaCompatible() {
+		PriceCriteria criteria = new PriceCriteria(
+				111151, 1472, "it", "Near Mint", false, false, true, null, null, false, false);
+
+		PriceCalculationResult result = calculator.calculate(criteria, List.of(
+				offer(1, 10_000).graded(true).description("[PSA 8.0]").build()));
+
+		assertThat(result.compatibleOffers()).isEqualTo(1);
+		assertThat(result.usedOffers()).isEqualTo(1);
 	}
 
 	@Test
@@ -168,6 +201,7 @@ class PriceCalculatorTest {
 		private boolean signed;
 		private boolean altered;
 		private boolean onVacation;
+		private String description;
 		private PokemonCardProperties properties;
 		private boolean propertiesOverridden;
 
@@ -188,6 +222,7 @@ class PriceCalculatorTest {
 		OfferBuilder signed(boolean value) { signed = value; return this; }
 		OfferBuilder altered(boolean value) { altered = value; return this; }
 		OfferBuilder onVacation(boolean value) { onVacation = value; return this; }
+		OfferBuilder description(String value) { description = value; return this; }
 		OfferBuilder properties(PokemonCardProperties value) {
 			properties = value;
 			propertiesOverridden = true;
@@ -206,6 +241,7 @@ class PriceCalculatorTest {
 					new CardTraderExpansionSummary(expansionId, "bs", "Base Set"),
 					new CardTraderMoney(priceCents, currency),
 					quantity,
+					description,
 					effectiveProperties,
 					graded,
 					onVacation);

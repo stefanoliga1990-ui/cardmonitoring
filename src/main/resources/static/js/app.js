@@ -37,6 +37,24 @@
         ["altered", "Alterata"]
     ];
 
+    const GRADING_COMPANIES = [
+        ["PSA", "PSA"],
+        ["BGS", "BGS / Beckett"],
+        ["CGC", "CGC"],
+        ["GRAAD", "GRAAD"],
+        ["SGC", "SGC"],
+        ["ACE", "ACE"],
+        ["TAG", "TAG"],
+        ["ARS", "ARS"],
+        ["AP", "AP Grading"],
+        ["EUROPEAN_GRADING", "European Grading"]
+    ];
+
+    const GRADING_GRADES = [
+        "1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5", "5", "5.5",
+        "6", "6.5", "7", "7.5", "8", "8.5", "9", "9.5", "10"
+    ];
+
     const state = {
         step: 1,
         expansions: [],
@@ -52,6 +70,8 @@
             signed: false,
             altered: false
         },
+        gradingCompany: "",
+        gradingGrade: "",
         loadingExpansions: false,
         loadingBlueprints: false,
         submitting: false,
@@ -123,6 +143,9 @@
         cardLookupResults: document.querySelector("#cardLookupResults"),
         languageSelect: document.querySelector("#languageSelect"),
         conditionChoices: document.querySelector("#conditionChoices"),
+        gradingDetailsPanel: document.querySelector("#gradingDetailsPanel"),
+        gradingCompanySelect: document.querySelector("#gradingCompanySelect"),
+        gradingGradeSelect: document.querySelector("#gradingGradeSelect"),
         retryExpansions: document.querySelector("#retryExpansionsButton"),
         retryBlueprints: document.querySelector("#retryBlueprintsButton"),
         back: document.querySelector("#backButton"),
@@ -201,6 +224,7 @@
     async function initialize() {
         renderLanguages();
         renderConditions();
+        renderGradingOptions();
         bindEvents();
         renderStep();
         await initializeSession();
@@ -242,7 +266,19 @@
             const input = document.querySelector(`#${property}Input`);
             input.addEventListener("change", () => {
                 state.variants[property] = input.checked;
+                if (property === "graded") {
+                    updateGradingDetailsVisibility();
+                }
+                updateActions();
             });
+        });
+        elements.gradingCompanySelect.addEventListener("change", () => {
+            state.gradingCompany = elements.gradingCompanySelect.value;
+            updateActions();
+        });
+        elements.gradingGradeSelect.addEventListener("change", () => {
+            state.gradingGrade = elements.gradingGradeSelect.value;
+            updateActions();
         });
         elements.back.addEventListener("click", goBack);
         elements.next.addEventListener("click", goNext);
@@ -456,6 +492,15 @@
             label.htmlFor = input.id;
             label.append(input, text);
             elements.conditionChoices.append(label);
+        });
+    }
+
+    function renderGradingOptions() {
+        GRADING_COMPANIES.forEach(([value, label]) => {
+            elements.gradingCompanySelect.add(new Option(label, value));
+        });
+        GRADING_GRADES.forEach((grade) => {
+            elements.gradingGradeSelect.add(new Option(grade, grade));
         });
     }
 
@@ -805,7 +850,10 @@
             case 4:
                 return CONDITIONS.includes(state.condition);
             case 5:
-                return true;
+                return !state.variants.graded || (
+                    GRADING_COMPANIES.some(([value]) => value === state.gradingCompany)
+                    && GRADING_GRADES.includes(state.gradingGrade)
+                );
             case 6:
                 return allSelectionsValid();
             default:
@@ -831,6 +879,7 @@
             2: "Seleziona una carta per continuare.",
             3: "Seleziona la lingua della carta.",
             4: "Seleziona la condizione della carta.",
+            5: "Se la carta è gradata, seleziona casa di grading e voto.",
             6: "Completa tutte le selezioni prima di confermare."
         }[step] || "Completa la selezione per continuare.";
     }
@@ -847,12 +896,34 @@
             : "—";
         document.querySelector("#summaryLanguage").textContent = language ? language[1] : "—";
         document.querySelector("#summaryCondition").textContent = state.condition || "—";
-        const activeVariants = VARIANT_LABELS
-            .filter(([property]) => state.variants[property])
-            .map(([, label]) => label);
+        const activeVariants = selectedVariantLabels();
         document.querySelector("#summaryVariants").textContent = activeVariants.length > 0
             ? activeVariants.join(", ")
             : "Standard";
+    }
+
+    function selectedVariantLabels() {
+        return VARIANT_LABELS
+            .filter(([property]) => state.variants[property])
+            .map(([property, label]) => {
+                if (property === "graded" && state.gradingCompany && state.gradingGrade) {
+                    return `${label} ${gradingCompanyLabel(state.gradingCompany)} ${state.gradingGrade}`;
+                }
+                return label;
+            });
+    }
+
+    function updateGradingDetailsVisibility() {
+        const visible = state.variants.graded;
+        elements.gradingDetailsPanel.hidden = !visible;
+        elements.gradingCompanySelect.required = visible;
+        elements.gradingGradeSelect.required = visible;
+        if (!visible) {
+            state.gradingCompany = "";
+            state.gradingGrade = "";
+            elements.gradingCompanySelect.value = "";
+            elements.gradingGradeSelect.value = "";
+        }
     }
 
     async function submitCalculation(event) {
@@ -895,7 +966,9 @@
             blueprintId: state.blueprintId,
             language: state.language,
             condition: state.condition,
-            ...state.variants
+            ...state.variants,
+            gradingCompany: state.variants.graded ? state.gradingCompany : null,
+            gradingGrade: state.variants.graded ? state.gradingGrade : null
         };
     }
 
@@ -936,6 +1009,9 @@
                 createElement("strong", "", formatCents(offer.priceCents, offer.currency || currency)),
                 createElement("span", "", `Inserzione CardTrader #${offer.offerId} · quantità ${offer.quantity}`)
             );
+            if (offer.description) {
+                item.append(createElement("p", "offer-description", `Descrizione CardTrader: ${offer.description}`));
+            }
             elements.calculationOffers.append(item);
         });
     }
@@ -1057,6 +1133,9 @@
         Object.keys(state.variants).forEach((property) => {
             state.variants[property] = false;
         });
+        state.gradingCompany = "";
+        state.gradingGrade = "";
+        updateGradingDetailsVisibility();
         populateExpansionSelect();
         resetBlueprintSelect("Seleziona prima un set");
         elements.cardLookupResults.replaceChildren();
@@ -2016,8 +2095,18 @@
     function monitoringVariantLabel(monitoring) {
         const variants = VARIANT_LABELS
             .filter(([property]) => monitoring[property])
-            .map(([, label]) => label);
+            .map(([property, label]) => {
+                if (property === "graded" && monitoring.gradingCompany && monitoring.gradingGrade) {
+                    return `${label} ${gradingCompanyLabel(monitoring.gradingCompany)} ${monitoring.gradingGrade}`;
+                }
+                return label;
+            });
         return variants.length > 0 ? variants.join(", ") : "Standard";
+    }
+
+    function gradingCompanyLabel(company) {
+        const match = GRADING_COMPANIES.find(([value]) => value === company);
+        return match ? match[1] : company;
     }
 
     function observationCountLabel(count) {

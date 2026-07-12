@@ -48,7 +48,7 @@ class MonitoringControllerTest {
 	@Test
 	void createsMonitoringAndReturnsInitialObservation() throws Exception {
 		when(monitoringService.create(42L, new CreateMonitoringRequest(
-				1472, 111151, "it", "Near Mint", false, false, false, false, false)))
+				1472, 111151, "it", "Near Mint", false, false, false, null, null, false, false)))
 				.thenReturn(new CreatedMonitoringResponse(monitoringResponse(), observationResponse()));
 
 		mockMvc.perform(post("/api/monitorings")
@@ -169,6 +169,8 @@ class MonitoringControllerTest {
 				false,
 				false,
 				false,
+				null,
+				null,
 				false,
 				false,
 				true,

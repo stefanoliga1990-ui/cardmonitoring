@@ -39,7 +39,7 @@ class PriceCalculationControllerTest {
 	@Test
 	void exposesDetailedNonPersistedPriceCalculation() throws Exception {
 		PriceCalculationRequest request = new PriceCalculationRequest(
-				1472, 111151, "it", "Near Mint", false, false, false, false, false);
+				1472, 111151, "it", "Near Mint", false, false, false, null, null, false, false);
 		when(previewService.calculate(request)).thenReturn(new PriceCalculationPreviewResponse(
 				Instant.parse("2026-07-03T10:00:00Z"),
 				"CARDTRADER_ACTIVE_LISTINGS",
@@ -54,7 +54,7 @@ class PriceCalculationControllerTest {
 				"POKEMON_TCG_API",
 				"it",
 				"Near Mint",
-				false, false, false, false, false,
+				false, false, false, null, null, false, false,
 				"EUR",
 				new BigDecimal("10100.00"),
 				10_000L,
@@ -62,7 +62,7 @@ class PriceCalculationControllerTest {
 				3,
 				3,
 				ConfidenceLevel.MEDIUM,
-				List.of(new UsedMarketplaceOffer(418408517L, 10_000L, "EUR", 1))));
+				List.of(new UsedMarketplaceOffer(418408517L, 10_000L, "EUR", 1, null, null, null))));
 
 		mockMvc.perform(post("/api/price-calculations")
 				.contentType(MediaType.APPLICATION_JSON)

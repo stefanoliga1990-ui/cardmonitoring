@@ -30,7 +30,7 @@ class PriceCalculationServiceTest {
 	@Test
 	void loadsMarketplaceOffersUsingCriteriaAndDelegatesCalculation() {
 		PriceCriteria criteria = new PriceCriteria(
-				111151, 1472, "it", "Near Mint", false, false, false, false, false);
+				111151, 1472, "it", "Near Mint", false, false, false, null, null, false, false);
 		List<CardTraderMarketplaceOffer> offers = List.of();
 		PriceCalculationResult expectedResult = new PriceCalculationResult(
 				"EUR", null, null, null, 0, 0, ConfidenceLevel.NO_DATA);

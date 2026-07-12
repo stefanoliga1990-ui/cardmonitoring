@@ -117,6 +117,8 @@ public class MonitoringPersistenceService {
 				monitoring.isFirstEdition(),
 				monitoring.isReverse(),
 				monitoring.isGraded(),
+				monitoring.getGradingCompany(),
+				monitoring.getGradingGrade(),
 				monitoring.isSigned(),
 				monitoring.isAltered(),
 				monitoring.getCurrency());
@@ -206,6 +208,8 @@ public class MonitoringPersistenceService {
 			boolean firstEdition,
 			boolean reverse,
 			boolean graded,
+			String gradingCompany,
+			String gradingGrade,
 			boolean signed,
 			boolean altered,
 			String currency) {

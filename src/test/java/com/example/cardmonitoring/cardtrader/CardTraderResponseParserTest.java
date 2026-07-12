@@ -87,6 +87,7 @@ class CardTraderResponseParserTest {
 							.isEqualTo(new CardTraderExpansionSummary(1472, "bs", "Base Set"));
 					assertThat(offer.price()).isEqualTo(new CardTraderMoney(8064, "EUR"));
 					assertThat(offer.quantity()).isEqualTo(1);
+					assertThat(offer.description()).isNull();
 					assertThat(offer.graded()).isFalse();
 					assertThat(offer.onVacation()).isFalse();
 					assertThat(offer.properties()).isEqualTo(new PokemonCardProperties(

@@ -26,7 +26,7 @@ import jakarta.persistence.EntityManager;
 class MonitoringPersistenceTest {
 
 	private static final PriceCriteria CRITERIA = new PriceCriteria(
-			111151, 1472, "it", "Near Mint", false, false, false, false, false);
+			111151, 1472, "it", "Near Mint", false, false, false, null, null, false, false);
 
 	@Autowired
 	private MonitoringRepository monitoringRepository;

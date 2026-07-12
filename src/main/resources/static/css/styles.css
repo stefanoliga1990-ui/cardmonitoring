@@ -589,6 +589,50 @@ select:disabled {
     outline-offset: 2px;
 }
 
+.grading-details-panel {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid #e7c1b1;
+    border-radius: 14px;
+    background: var(--accent-soft);
+}
+
+.grading-details-panel[hidden] {
+    display: none;
+}
+
+.grading-details-panel label {
+    display: grid;
+    gap: 7px;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.grading-details-panel select {
+    min-height: 43px;
+    padding: 0 12px;
+    border: 1px solid #cfd7d3;
+    border-radius: 10px;
+    color: var(--ink);
+    background: white;
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.grading-details-panel p {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: #5e7168;
+    font-size: 0.78rem;
+}
+
 .info-note,
 .confirmation-note {
     display: flex;
@@ -1787,6 +1831,13 @@ body.is-loading-overlay-visible {
     font-size: 0.76rem;
 }
 
+.used-offers .offer-description {
+    margin-top: 5px;
+    color: #3f554b;
+    font-size: 0.76rem;
+    font-style: italic;
+}
+
 .calculation-empty {
     max-width: none;
     margin: 28px 0 24px;
@@ -1936,6 +1987,10 @@ body.is-loading-overlay-visible {
     .choice-grid,
     .variant-list,
     .card-lookup-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .grading-details-panel {
         grid-template-columns: 1fr;
     }
 

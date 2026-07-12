@@ -35,9 +35,10 @@ public class PriceCalculationPreviewService {
 		}
 		PriceCriteria criteria = request.toPriceCriteria();
 		LOGGER.info(
-				"Starting price preview calculation: blueprintId={}, expansionId={}, language={}, condition={}, firstEdition={}, reverse={}, graded={}, signed={}, altered={}",
+				"Starting price preview calculation: blueprintId={}, expansionId={}, language={}, condition={}, firstEdition={}, reverse={}, graded={}, gradingCompany={}, gradingGrade={}, signed={}, altered={}",
 				criteria.blueprintId(), criteria.expansionId(), criteria.language(), criteria.condition(),
-				criteria.firstEdition(), criteria.reverse(), criteria.graded(), criteria.signed(), criteria.altered());
+				criteria.firstEdition(), criteria.reverse(), criteria.graded(), criteria.gradingCompany(),
+				criteria.gradingGrade(), criteria.signed(), criteria.altered());
 		CatalogCard card = catalogService.resolvePokemonCard(criteria.expansionId(), criteria.blueprintId());
 		CardImage image = cardImageService.resolve(card).orElse(null);
 		LOGGER.info("Price preview image lookup completed: blueprintId={}, imageFound={}, imageSource={}",

@@ -55,9 +55,10 @@ public class MonitoringService {
 		}
 		PriceCriteria criteria = request.toPriceCriteria();
 		LOGGER.info(
-				"Starting monitoring activation: ownerId={}, blueprintId={}, expansionId={}, language={}, condition={}, firstEdition={}, reverse={}, graded={}, signed={}, altered={}",
+				"Starting monitoring activation: ownerId={}, blueprintId={}, expansionId={}, language={}, condition={}, firstEdition={}, reverse={}, graded={}, gradingCompany={}, gradingGrade={}, signed={}, altered={}",
 				ownerId, criteria.blueprintId(), criteria.expansionId(), criteria.language(), criteria.condition(),
-				criteria.firstEdition(), criteria.reverse(), criteria.graded(), criteria.signed(), criteria.altered());
+				criteria.firstEdition(), criteria.reverse(), criteria.graded(), criteria.gradingCompany(),
+				criteria.gradingGrade(), criteria.signed(), criteria.altered());
 		CatalogCard resolvedCard = catalogService.resolvePokemonCard(criteria.expansionId(), criteria.blueprintId());
 		CardImage image = cardImageService.resolve(resolvedCard).orElse(null);
 		LOGGER.info("Monitoring activation image lookup completed: ownerId={}, blueprintId={}, imageFound={}, imageSource={}",

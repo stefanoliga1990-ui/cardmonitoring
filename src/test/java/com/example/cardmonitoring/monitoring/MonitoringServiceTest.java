@@ -41,7 +41,7 @@ import com.example.cardmonitoring.pricing.PriceCriteria;
 class MonitoringServiceTest {
 
 	private static final PriceCriteria CRITERIA = new PriceCriteria(
-			111151, 1472, "it", "Near Mint", false, false, false, false, false);
+			111151, 1472, "it", "Near Mint", false, false, false, null, null, false, false);
 	private static final PriceCalculationResult RESULT = new PriceCalculationResult(
 			"EUR", new BigDecimal("10100.00"), 10_000L, 10_200L, 3, 3, ConfidenceLevel.MEDIUM);
 	private static final CatalogCard CARD = new CatalogCard(
@@ -186,7 +186,7 @@ class MonitoringServiceTest {
 
 	private static CreateMonitoringRequest request() {
 		return new CreateMonitoringRequest(
-				1472, 111151, "it", "Near Mint", false, false, false, false, false);
+				1472, 111151, "it", "Near Mint", false, false, false, null, null, false, false);
 	}
 
 	private static PriceObservationResponse observationResponse() {

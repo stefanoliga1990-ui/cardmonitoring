@@ -33,7 +33,7 @@ class PriceCalculationPreviewServiceTest {
 	@Test
 	void calculatesPreviewWithoutAnyPersistenceDependency() {
 		PriceCalculationRequest request = new PriceCalculationRequest(
-				1472, 111151, "it", "Near Mint", false, false, false, false, false);
+				1472, 111151, "it", "Near Mint", false, false, false, null, null, false, false);
 		PriceCriteria criteria = request.toPriceCriteria();
 		CatalogCard card = new CatalogCard(
 				111151, "Charizard", "Holo Rare | 4/102", 1472, "Base Set", "bs");
@@ -45,7 +45,7 @@ class PriceCalculationPreviewServiceTest {
 				3,
 				3,
 				ConfidenceLevel.MEDIUM,
-				List.of(new UsedMarketplaceOffer(418408517L, 10_000L, "EUR", 1)));
+				List.of(new UsedMarketplaceOffer(418408517L, 10_000L, "EUR", 1, null, null, null)));
 		when(catalogService.resolvePokemonCard(1472, 111151)).thenReturn(card);
 		when(cardImageService.resolve(card)).thenReturn(java.util.Optional.of(new CardImage(
 				"https://images.test/small.png", "https://images.test/large.png", "POKEMON_TCG_API")));
@@ -61,7 +61,7 @@ class PriceCalculationPreviewServiceTest {
 		assertThat(preview.imageUrlLarge()).isEqualTo("https://images.test/large.png");
 		assertThat(preview.averagePriceCents()).isEqualByComparingTo("10100.00");
 		assertThat(preview.offersUsed()).containsExactly(
-				new UsedMarketplaceOffer(418408517L, 10_000L, "EUR", 1));
+				new UsedMarketplaceOffer(418408517L, 10_000L, "EUR", 1, null, null, null));
 		assertThat(preview.calculatedAt()).isNotNull();
 		InOrder order = inOrder(catalogService, cardImageService, priceCalculationService);
 		order.verify(catalogService).resolvePokemonCard(1472, 111151);

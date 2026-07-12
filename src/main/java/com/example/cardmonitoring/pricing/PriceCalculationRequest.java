@@ -8,6 +8,8 @@ public record PriceCalculationRequest(
 		boolean firstEdition,
 		boolean reverse,
 		boolean graded,
+		String gradingCompany,
+		String gradingGrade,
 		boolean signed,
 		boolean altered) {
 
@@ -20,6 +22,8 @@ public record PriceCalculationRequest(
 				firstEdition,
 				reverse,
 				graded,
+				gradingCompany,
+				gradingGrade,
 				signed,
 				altered);
 	}

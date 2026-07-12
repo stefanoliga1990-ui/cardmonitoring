@@ -10,6 +10,8 @@ public record PriceCriteria(
 		boolean firstEdition,
 		boolean reverse,
 		boolean graded,
+		String gradingCompany,
+		String gradingGrade,
 		boolean signed,
 		boolean altered) {
 
@@ -29,6 +31,15 @@ public record PriceCriteria(
 		condition = condition == null ? "" : condition.trim();
 		if (condition.isEmpty()) {
 			throw new IllegalArgumentException("condition is required");
+		}
+		gradingCompany = GradingDescriptionParser.normalizeCompany(gradingCompany).orElse(null);
+		gradingGrade = GradingDescriptionParser.normalizeGrade(gradingGrade).orElse(null);
+		if (!graded) {
+			gradingCompany = null;
+			gradingGrade = null;
+		}
+		if (graded && (gradingCompany == null ^ gradingGrade == null)) {
+			throw new IllegalArgumentException("grading company and grade must be provided together");
 		}
 	}
 }

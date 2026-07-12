@@ -7,6 +7,7 @@ public record CardTraderMarketplaceOffer(
 		CardTraderExpansionSummary expansion,
 		CardTraderMoney price,
 		int quantity,
+		String description,
 		PokemonCardProperties properties,
 		boolean graded,
 		boolean onVacation) {

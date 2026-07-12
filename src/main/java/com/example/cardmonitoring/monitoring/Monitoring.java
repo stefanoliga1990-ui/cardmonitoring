@@ -75,6 +75,12 @@ public class Monitoring {
 	@Column(nullable = false)
 	private boolean graded;
 
+	@Column(name = "grading_company", length = 50)
+	private String gradingCompany;
+
+	@Column(name = "grading_grade", length = 10)
+	private String gradingGrade;
+
 	@Column(nullable = false)
 	private boolean signed;
 
@@ -121,6 +127,8 @@ public class Monitoring {
 		this.firstEdition = criteria.firstEdition();
 		this.reverse = criteria.reverse();
 		this.graded = criteria.graded();
+		this.gradingCompany = optionalText(criteria.gradingCompany(), 50);
+		this.gradingGrade = optionalText(criteria.gradingGrade(), 10);
 		this.signed = criteria.signed();
 		this.altered = criteria.altered();
 		this.currency = requiredCurrency(currency);
@@ -161,6 +169,8 @@ public class Monitoring {
 				firstEdition,
 				reverse,
 				graded,
+				gradingCompany,
+				gradingGrade,
 				signed,
 				altered);
 	}
@@ -227,6 +237,14 @@ public class Monitoring {
 
 	public boolean isGraded() {
 		return graded;
+	}
+
+	public String getGradingCompany() {
+		return gradingCompany;
+	}
+
+	public String getGradingGrade() {
+		return gradingGrade;
 	}
 
 	public boolean isSigned() {

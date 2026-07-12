@@ -107,6 +107,7 @@ public class CardTraderResponseParser {
 					parseExpansion(item.get("expansion")),
 					parsePrice(item),
 					requiredNonNegativeInt(item, "quantity"),
+					optionalText(item, "description"),
 					parsePokemonProperties(item.get("properties_hash")),
 					requiredBoolean(item, "graded"),
 					requiredBoolean(item, "on_vacation")));
