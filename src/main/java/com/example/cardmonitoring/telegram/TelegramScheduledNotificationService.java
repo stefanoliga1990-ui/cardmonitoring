@@ -64,12 +64,14 @@ public class TelegramScheduledNotificationService {
 				.append(target.expansionCode())
 				.append("\n");
 		message.append("  ").append(target.cardVersion()).append("\n");
+		List<String> criteria = new ArrayList<>();
+		criteria.add(languageLabel(target.language()));
+		if (target.condition() != null) {
+			criteria.add(target.condition());
+		}
+		criteria.add(variantsLabel(result));
 		message.append("  Criteri: ")
-				.append(languageLabel(target.language()))
-				.append(", ")
-				.append(target.condition())
-				.append(", ")
-				.append(variantsLabel(result))
+				.append(String.join(", ", criteria))
 				.append("\n");
 
 		if (!result.success()) {

@@ -1,6 +1,7 @@
 package com.example.cardmonitoring.pricing;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -105,6 +106,32 @@ class PriceCalculatorTest {
 
 		assertThat(result.compatibleOffers()).isEqualTo(1);
 		assertThat(result.usedOffers()).isEqualTo(1);
+	}
+
+	@Test
+	void supportsGradedCriteriaWithoutCardCondition() {
+		PriceCriteria criteria = new PriceCriteria(
+				111151, 1472, "it", null, false, false, true, "CGC", "8.5", false, false);
+
+		PriceCalculationResult result = calculator.calculate(criteria, List.of(
+				offer(1, 10_000).graded(true).condition("Poor").description("CGC 8,5").build(),
+				offer(2, 9_000).graded(true).condition("Near Mint").description("CGC 9").build()));
+
+		assertThat(result.compatibleOffers()).isEqualTo(1);
+		assertThat(result.offersUsed()).singleElement()
+				.satisfies(offer -> {
+					assertThat(offer.offerId()).isEqualTo(1L);
+					assertThat(offer.gradingCompany()).isEqualTo("CGC");
+					assertThat(offer.gradingGrade()).isEqualTo("8.5");
+				});
+	}
+
+	@Test
+	void rejectsNonGradedCriteriaWithoutCardCondition() {
+		assertThatThrownBy(() -> new PriceCriteria(
+				111151, 1472, "it", null, false, false, false, null, null, false, false))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("condition is required");
 	}
 
 	@Test

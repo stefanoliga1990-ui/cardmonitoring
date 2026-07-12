@@ -32,7 +32,6 @@
     const VARIANT_LABELS = [
         ["firstEdition", "Prima edizione"],
         ["reverse", "Reverse"],
-        ["graded", "Gradata"],
         ["signed", "Firmata"],
         ["altered", "Alterata"]
     ];
@@ -63,15 +62,17 @@
         blueprintId: null,
         language: "",
         condition: "",
+        graded: false,
         variants: {
             firstEdition: false,
             reverse: false,
-            graded: false,
             signed: false,
             altered: false
         },
         gradingCompany: "",
         gradingGrade: "",
+        cardLookupExpanded: false,
+        gradingSearchExpanded: false,
         loadingExpansions: false,
         loadingBlueprints: false,
         submitting: false,
@@ -135,6 +136,9 @@
         status: document.querySelector("#globalStatus"),
         expansionSelect: document.querySelector("#expansionSelect"),
         blueprintSelect: document.querySelector("#blueprintSelect"),
+        cardLookupPanel: document.querySelector("#cardLookupPanel"),
+        cardLookupToggle: document.querySelector("#cardLookupToggleButton"),
+        cardLookupContent: document.querySelector("#cardLookupContent"),
         cardLookupName: document.querySelector("#cardLookupName"),
         cardLookupNumber: document.querySelector("#cardLookupNumber"),
         cardLookupTotal: document.querySelector("#cardLookupTotal"),
@@ -143,6 +147,8 @@
         cardLookupResults: document.querySelector("#cardLookupResults"),
         languageSelect: document.querySelector("#languageSelect"),
         conditionChoices: document.querySelector("#conditionChoices"),
+        gradingSearchPanel: document.querySelector("#gradingSearchPanel"),
+        gradingSearchToggle: document.querySelector("#gradingSearchToggleButton"),
         gradingDetailsPanel: document.querySelector("#gradingDetailsPanel"),
         gradingCompanySelect: document.querySelector("#gradingCompanySelect"),
         gradingGradeSelect: document.querySelector("#gradingGradeSelect"),
@@ -237,6 +243,7 @@
         elements.showRegister.addEventListener("click", () => switchAuthMode("register"));
         elements.logout.addEventListener("click", logout);
         elements.expansionSelect.addEventListener("change", handleExpansionChange);
+        elements.cardLookupToggle.addEventListener("click", toggleCardLookupPanel);
         elements.cardLookupButton.addEventListener("click", identifyCard);
         elements.cardLookupNumber.addEventListener("change", splitLookupNumber);
         [elements.cardLookupName, elements.cardLookupNumber, elements.cardLookupTotal].forEach((input) => {
@@ -259,6 +266,8 @@
         elements.conditionChoices.addEventListener("change", (event) => {
             if (event.target.matches('input[name="condition"]')) {
                 state.condition = event.target.value;
+                setGradingSearchExpanded(false);
+                clearGradingSelection();
                 updateActions();
             }
         });
@@ -266,18 +275,18 @@
             const input = document.querySelector(`#${property}Input`);
             input.addEventListener("change", () => {
                 state.variants[property] = input.checked;
-                if (property === "graded") {
-                    updateGradingDetailsVisibility();
-                }
                 updateActions();
             });
         });
+        elements.gradingSearchToggle.addEventListener("click", toggleGradingSearchPanel);
         elements.gradingCompanySelect.addEventListener("change", () => {
             state.gradingCompany = elements.gradingCompanySelect.value;
+            updateGradedSelectionFromInputs();
             updateActions();
         });
         elements.gradingGradeSelect.addEventListener("change", () => {
             state.gradingGrade = elements.gradingGradeSelect.value;
+            updateGradedSelectionFromInputs();
             updateActions();
         });
         elements.back.addEventListener("click", goBack);
@@ -482,7 +491,6 @@
             input.name = "condition";
             input.id = `condition-${index}`;
             input.value = condition;
-            input.required = true;
 
             const text = document.createElement("span");
             text.textContent = condition;
@@ -501,6 +509,59 @@
         });
         GRADING_GRADES.forEach((grade) => {
             elements.gradingGradeSelect.add(new Option(grade, grade));
+        });
+    }
+
+    function toggleCardLookupPanel() {
+        setCardLookupExpanded(!state.cardLookupExpanded);
+    }
+
+    function setCardLookupExpanded(expanded) {
+        state.cardLookupExpanded = expanded;
+        elements.cardLookupPanel.classList.toggle("is-collapsed", !expanded);
+        elements.cardLookupContent.hidden = !expanded;
+        elements.cardLookupToggle.setAttribute("aria-expanded", String(expanded));
+    }
+
+    function toggleGradingSearchPanel() {
+        setGradingSearchExpanded(!state.gradingSearchExpanded);
+        if (state.gradingSearchExpanded) {
+            clearConditionSelection();
+        }
+        if (!state.gradingSearchExpanded) {
+            clearGradingSelection();
+        }
+        updateActions();
+    }
+
+    function setGradingSearchExpanded(expanded) {
+        state.gradingSearchExpanded = expanded;
+        elements.gradingSearchPanel.classList.toggle("is-collapsed", !expanded);
+        elements.gradingDetailsPanel.hidden = !expanded;
+        elements.gradingSearchToggle.setAttribute("aria-expanded", String(expanded));
+        elements.gradingCompanySelect.required = expanded;
+        elements.gradingGradeSelect.required = expanded;
+    }
+
+    function updateGradedSelectionFromInputs() {
+        state.graded = Boolean(state.gradingCompany && state.gradingGrade);
+        if (state.gradingCompany || state.gradingGrade) {
+            clearConditionSelection();
+        }
+    }
+
+    function clearGradingSelection() {
+        state.graded = false;
+        state.gradingCompany = "";
+        state.gradingGrade = "";
+        elements.gradingCompanySelect.value = "";
+        elements.gradingGradeSelect.value = "";
+    }
+
+    function clearConditionSelection() {
+        state.condition = "";
+        elements.conditionChoices.querySelectorAll('input[name="condition"]').forEach((input) => {
+            input.checked = false;
         });
     }
 
@@ -848,12 +909,12 @@
             case 3:
                 return LANGUAGES.some(([code]) => code === state.language);
             case 4:
-                return CONDITIONS.includes(state.condition);
+                return CONDITIONS.includes(state.condition)
+                    || (state.graded
+                        && GRADING_COMPANIES.some(([value]) => value === state.gradingCompany)
+                        && GRADING_GRADES.includes(state.gradingGrade));
             case 5:
-                return !state.variants.graded || (
-                    GRADING_COMPANIES.some(([value]) => value === state.gradingCompany)
-                    && GRADING_GRADES.includes(state.gradingGrade)
-                );
+                return true;
             case 6:
                 return allSelectionsValid();
             default:
@@ -896,6 +957,10 @@
             : "—";
         document.querySelector("#summaryLanguage").textContent = language ? language[1] : "—";
         document.querySelector("#summaryCondition").textContent = state.condition || "—";
+        if (state.graded) {
+            document.querySelector("#summaryCondition").textContent =
+                `Gradata ${gradingCompanyLabel(state.gradingCompany)} ${state.gradingGrade}`;
+        }
         const activeVariants = selectedVariantLabels();
         document.querySelector("#summaryVariants").textContent = activeVariants.length > 0
             ? activeVariants.join(", ")
@@ -905,25 +970,7 @@
     function selectedVariantLabels() {
         return VARIANT_LABELS
             .filter(([property]) => state.variants[property])
-            .map(([property, label]) => {
-                if (property === "graded" && state.gradingCompany && state.gradingGrade) {
-                    return `${label} ${gradingCompanyLabel(state.gradingCompany)} ${state.gradingGrade}`;
-                }
-                return label;
-            });
-    }
-
-    function updateGradingDetailsVisibility() {
-        const visible = state.variants.graded;
-        elements.gradingDetailsPanel.hidden = !visible;
-        elements.gradingCompanySelect.required = visible;
-        elements.gradingGradeSelect.required = visible;
-        if (!visible) {
-            state.gradingCompany = "";
-            state.gradingGrade = "";
-            elements.gradingCompanySelect.value = "";
-            elements.gradingGradeSelect.value = "";
-        }
+            .map(([, label]) => label);
     }
 
     async function submitCalculation(event) {
@@ -965,10 +1012,11 @@
             expansionId: state.expansionId,
             blueprintId: state.blueprintId,
             language: state.language,
-            condition: state.condition,
+            condition: state.graded ? null : state.condition,
             ...state.variants,
-            gradingCompany: state.variants.graded ? state.gradingCompany : null,
-            gradingGrade: state.variants.graded ? state.gradingGrade : null
+            graded: state.graded,
+            gradingCompany: state.graded ? state.gradingCompany : null,
+            gradingGrade: state.graded ? state.gradingGrade : null
         };
     }
 
@@ -1133,9 +1181,9 @@
         Object.keys(state.variants).forEach((property) => {
             state.variants[property] = false;
         });
-        state.gradingCompany = "";
-        state.gradingGrade = "";
-        updateGradingDetailsVisibility();
+        clearGradingSelection();
+        setGradingSearchExpanded(false);
+        setCardLookupExpanded(false);
         populateExpansionSelect();
         resetBlueprintSelect("Seleziona prima un set");
         elements.cardLookupResults.replaceChildren();
@@ -1797,7 +1845,7 @@
         document.querySelector("#criteriaExpansion").textContent = `${monitoring.expansionName} (${monitoring.expansionCode})`;
         document.querySelector("#criteriaCard").textContent = `${monitoring.cardName} · ${monitoring.cardVersion}`;
         document.querySelector("#criteriaLanguage").textContent = languageLabel(monitoring.language);
-        document.querySelector("#criteriaCondition").textContent = monitoring.condition;
+        document.querySelector("#criteriaCondition").textContent = monitoring.condition || "Non applicata";
         document.querySelector("#criteriaVariants").textContent = monitoringVariantLabel(monitoring);
 
         const errorPanel = document.querySelector("#detailErrorPanel");
@@ -2093,14 +2141,20 @@
     }
 
     function monitoringVariantLabel(monitoring) {
-        const variants = VARIANT_LABELS
+        const variants = [];
+        if (monitoring.graded) {
+            variants.push(monitoring.gradingCompany && monitoring.gradingGrade
+                ? `Gradata ${gradingCompanyLabel(monitoring.gradingCompany)} ${monitoring.gradingGrade}`
+                : "Gradata");
+        }
+        variants.push(...VARIANT_LABELS
             .filter(([property]) => monitoring[property])
             .map(([property, label]) => {
                 if (property === "graded" && monitoring.gradingCompany && monitoring.gradingGrade) {
                     return `${label} ${gradingCompanyLabel(monitoring.gradingCompany)} ${monitoring.gradingGrade}`;
                 }
                 return label;
-            });
+            }));
         return variants.length > 0 ? variants.join(", ") : "Standard";
     }
 

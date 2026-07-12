@@ -63,7 +63,7 @@ public class Monitoring {
 	@Column(nullable = false, length = 10)
 	private String language;
 
-	@Column(name = "card_condition", nullable = false, length = 50)
+	@Column(name = "card_condition", length = 50)
 	private String condition;
 
 	@Column(name = "first_edition", nullable = false)
@@ -123,7 +123,7 @@ public class Monitoring {
 		this.imageUrlLarge = optionalText(imageUrlLarge, 500);
 		this.imageSource = optionalText(imageSource, 50);
 		this.language = criteria.language();
-		this.condition = requiredText(criteria.condition(), "condition", 50);
+		this.condition = optionalText(criteria.condition(), 50);
 		this.firstEdition = criteria.firstEdition();
 		this.reverse = criteria.reverse();
 		this.graded = criteria.graded();

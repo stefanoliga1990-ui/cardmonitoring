@@ -28,18 +28,24 @@ public record PriceCriteria(
 		if (!LANGUAGE_CODE.matcher(language).matches()) {
 			throw new IllegalArgumentException("language must be a CardTrader language code");
 		}
-		condition = condition == null ? "" : condition.trim();
-		if (condition.isEmpty()) {
-			throw new IllegalArgumentException("condition is required");
+		condition = condition == null ? null : condition.trim();
+		if (condition != null && condition.isEmpty()) {
+			condition = null;
 		}
 		gradingCompany = GradingDescriptionParser.normalizeCompany(gradingCompany).orElse(null);
 		gradingGrade = GradingDescriptionParser.normalizeGrade(gradingGrade).orElse(null);
 		if (!graded) {
+			if (condition == null) {
+				throw new IllegalArgumentException("condition is required");
+			}
 			gradingCompany = null;
 			gradingGrade = null;
 		}
 		if (graded && (gradingCompany == null ^ gradingGrade == null)) {
 			throw new IllegalArgumentException("grading company and grade must be provided together");
+		}
+		if (graded && condition == null && gradingCompany == null) {
+			throw new IllegalArgumentException("graded criteria require grading company and grade when condition is omitted");
 		}
 	}
 }

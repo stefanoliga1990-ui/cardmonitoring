@@ -97,7 +97,7 @@ public class PriceCalculator {
 		PokemonCardProperties properties = offer.properties();
 		return properties != null
 				&& criteria.language().equals(properties.language())
-				&& criteria.condition().equals(properties.condition())
+				&& (criteria.condition() == null || criteria.condition().equals(properties.condition()))
 				&& Boolean.valueOf(criteria.firstEdition()).equals(properties.firstEdition())
 				&& Boolean.valueOf(criteria.reverse()).equals(properties.reverse())
 				&& Boolean.valueOf(criteria.signed()).equals(properties.signed())

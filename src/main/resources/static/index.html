@@ -313,13 +313,17 @@
                         Riprova il caricamento
                     </button>
 
-                    <section class="card-lookup-panel" aria-labelledby="cardLookupTitle">
-                        <div class="card-lookup-heading">
-                            <div>
-                                <h3 id="cardLookupTitle">Non conosci il set?</h3>
-                                <p>Cerca per nome e numero: ti mostriamo i possibili set con l'immagine della carta.</p>
+                    <section id="cardLookupPanel" class="card-lookup-panel is-collapsed" aria-labelledby="cardLookupTitle">
+                        <button id="cardLookupToggleButton" class="collapsible-toggle" type="button" aria-expanded="false" aria-controls="cardLookupContent">
+                            <div class="card-lookup-heading">
+                                <div>
+                                    <h3 id="cardLookupTitle">Non conosci il set?</h3>
+                                    <p>Cerca per nome e numero: ti mostriamo i possibili set con l'immagine della carta.</p>
+                                </div>
                             </div>
-                        </div>
+                            <span class="collapsible-icon" aria-hidden="true">⌄</span>
+                        </button>
+                        <div id="cardLookupContent" class="collapsible-content" hidden>
                         <div class="card-lookup-fields">
                             <label>
                                 <span>Nome carta</span>
@@ -339,6 +343,7 @@
                         </div>
                         <p id="cardLookupStatus" class="field-help" role="status" aria-live="polite"></p>
                         <div id="cardLookupResults" class="card-lookup-results" aria-label="Possibili set della carta"></div>
+                        </div>
                     </section>
                 </section>
 
@@ -384,6 +389,16 @@
                     <fieldset class="choice-grid" id="conditionChoices">
                         <legend class="sr-only">Condizione della carta</legend>
                     </fieldset>
+
+                    <section id="gradingSearchPanel" class="grading-search-panel is-collapsed" aria-labelledby="gradingSearchTitle">
+                        <button id="gradingSearchToggleButton" class="collapsible-toggle" type="button" aria-expanded="false" aria-controls="gradingDetailsPanel">
+                            <div>
+                                <h3 id="gradingSearchTitle">Oppure cerca una carta gradata</h3>
+                                <p>Non viene applicata la condizione Near Mint / Played: filtriamo casa di grading e voto dalla descrizione CardTrader.</p>
+                            </div>
+                            <span class="collapsible-icon" aria-hidden="true">⌄</span>
+                        </button>
+                    </section>
                 </section>
 
                 <section class="wizard-step" data-step="5" aria-labelledby="step-5-title" hidden>
@@ -400,11 +415,6 @@
                         <label class="switch-row" for="reverseInput">
                             <span><strong>Reverse</strong><small>Proprietà CardTrader: pokemon_reverse</small></span>
                             <input id="reverseInput" name="reverse" type="checkbox">
-                            <span class="switch" aria-hidden="true"></span>
-                        </label>
-                        <label class="switch-row" for="gradedInput">
-                            <span><strong>Gradata</strong><small>Carta certificata da un ente di grading</small></span>
-                            <input id="gradedInput" name="graded" type="checkbox">
                             <span class="switch" aria-hidden="true"></span>
                         </label>
                         <div id="gradingDetailsPanel" class="grading-details-panel" hidden>

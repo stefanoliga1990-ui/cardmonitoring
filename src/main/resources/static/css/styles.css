@@ -661,6 +661,70 @@ select:disabled {
     background: #fbfcfb;
 }
 
+.grading-search-panel {
+    display: grid;
+    gap: 14px;
+    margin-top: 18px;
+    padding: 18px;
+    border: 1px solid rgba(23, 35, 31, 0.1);
+    border-radius: 16px;
+    background: #fbfcfb;
+}
+
+.collapsible-toggle {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 0;
+    border: 0;
+    color: var(--ink);
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+}
+
+.collapsible-toggle:focus-visible {
+    outline: 3px solid rgba(217, 95, 50, 0.22);
+    outline-offset: 5px;
+}
+
+.collapsible-toggle h3 {
+    margin: 0 0 4px;
+    font-size: 1rem;
+}
+
+.collapsible-toggle p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.8rem;
+}
+
+.collapsible-icon {
+    display: grid;
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--accent-dark);
+    background: var(--accent-soft);
+    font-size: 1.1rem;
+    font-weight: 900;
+    transition: transform 160ms ease;
+}
+
+.card-lookup-panel:not(.is-collapsed) .collapsible-icon,
+.grading-search-panel:not(.is-collapsed) .collapsible-icon {
+    transform: rotate(180deg);
+}
+
+.collapsible-content {
+    display: grid;
+    gap: 14px;
+}
+
 .card-lookup-heading h3 {
     margin: 0 0 4px;
     font-size: 1rem;
