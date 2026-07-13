@@ -1399,8 +1399,15 @@
                     newPassword: elements.newPasswordInput.value
                 })
             });
-            hideChangePasswordForm();
-            setAccountStatus("Password modificata correttamente.", "info");
+            authState.user = null;
+            authState.csrfToken = null;
+            dashboardState.items = [];
+            telegramState.linked = false;
+            stopTelegramLinkPolling();
+            stopImageBackfillPolling();
+            await refreshCsrfToken();
+            updateRoute(ROUTES.dashboard);
+            showAuth("Password modificata correttamente. Accedi con la nuova password.", "info");
         }
         catch (error) {
             setAccountStatus(errorMessage(error, "Non è stato possibile modificare la password."), "error");

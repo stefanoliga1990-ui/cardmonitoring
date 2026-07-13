@@ -132,6 +132,8 @@ class SecurityIntegrationTest {
 						"""))
 				.andExpect(status().isNoContent());
 
+		mockMvc.perform(get("/api/account").session(session))
+				.andExpect(status().isUnauthorized());
 		mockMvc.perform(post("/api/auth/login")
 				.with(csrf())
 				.contentType(MediaType.APPLICATION_JSON)

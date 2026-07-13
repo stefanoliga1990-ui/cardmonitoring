@@ -36,11 +36,15 @@ public class AccountController {
 	@PutMapping("/password")
 	public ResponseEntity<Void> changePassword(
 			Authentication authentication,
-			@RequestBody ChangePasswordRequest request) {
+			@RequestBody ChangePasswordRequest request,
+			HttpServletRequest servletRequest,
+			HttpServletResponse servletResponse) {
 		if (request == null) {
 			throw new IllegalArgumentException("request is required");
 		}
 		appUserService.changePassword(userId(authentication), request.currentPassword(), request.newPassword());
+		logoutHandler.logout(servletRequest, servletResponse, authentication);
+		SecurityContextHolder.clearContext();
 		return ResponseEntity.noContent().build();
 	}
 
