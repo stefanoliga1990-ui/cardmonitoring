@@ -13,6 +13,8 @@ public interface MonitoringRepository extends JpaRepository<Monitoring, Long> {
 
 	List<Monitoring> findByOwnerIdAndActiveTrueOrderByCreatedAtDesc(long ownerId);
 
+	List<Monitoring> findByOwnerIdAndActiveTrueAndExpansionId(long ownerId, long expansionId);
+
 	Optional<Monitoring> findByIdAndOwnerId(long id, long ownerId);
 
 	long deleteByOwnerId(long ownerId);

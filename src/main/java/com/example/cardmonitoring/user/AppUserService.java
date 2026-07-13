@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.cardmonitoring.monitoring.MonitoringRepository;
+import com.example.cardmonitoring.collection.UserCollectionRepository;
 import com.example.cardmonitoring.telegram.TelegramLinkRequestRepository;
 
 @Service
@@ -25,16 +26,19 @@ public class AppUserService implements UserDetailsService {
 	private final AppUserRepository appUserRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final MonitoringRepository monitoringRepository;
+	private final UserCollectionRepository userCollectionRepository;
 	private final TelegramLinkRequestRepository telegramLinkRequestRepository;
 
 	public AppUserService(
 			AppUserRepository appUserRepository,
 			PasswordEncoder passwordEncoder,
 			MonitoringRepository monitoringRepository,
+			UserCollectionRepository userCollectionRepository,
 			TelegramLinkRequestRepository telegramLinkRequestRepository) {
 		this.appUserRepository = appUserRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.monitoringRepository = monitoringRepository;
+		this.userCollectionRepository = userCollectionRepository;
 		this.telegramLinkRequestRepository = telegramLinkRequestRepository;
 	}
 
@@ -88,6 +92,7 @@ public class AppUserService implements UserDetailsService {
 		AppUser user = requireUser(userId);
 		requireMatchingPassword(user, currentPassword);
 		telegramLinkRequestRepository.deleteByUserId(userId);
+		userCollectionRepository.deleteByOwnerId(userId);
 		monitoringRepository.deleteByOwnerId(userId);
 		appUserRepository.delete(user);
 	}

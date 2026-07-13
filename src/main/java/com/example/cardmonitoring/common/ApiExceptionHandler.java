@@ -15,6 +15,7 @@ import org.springframework.security.core.AuthenticationException;
 
 import com.example.cardmonitoring.cardtrader.CardTraderException;
 import com.example.cardmonitoring.catalog.CatalogNotFoundException;
+import com.example.cardmonitoring.collection.CollectionNotFoundException;
 import com.example.cardmonitoring.monitoring.MonitoringInactiveException;
 import com.example.cardmonitoring.monitoring.MonitoringNotFoundException;
 import com.example.cardmonitoring.monitoring.MonitoringRefreshInProgressException;
@@ -39,6 +40,12 @@ public class ApiExceptionHandler {
 	@ExceptionHandler(CatalogNotFoundException.class)
 	ResponseEntity<ProblemDetail> handleCatalogNotFoundException(CatalogNotFoundException exception) {
 		return problem(HttpStatus.NOT_FOUND, "Catalog item not found", "CATALOG_NOT_FOUND",
+				exception.getMessage());
+	}
+
+	@ExceptionHandler(CollectionNotFoundException.class)
+	ResponseEntity<ProblemDetail> handleCollectionNotFoundException(CollectionNotFoundException exception) {
+		return problem(HttpStatus.NOT_FOUND, "Collection not found", "COLLECTION_NOT_FOUND",
 				exception.getMessage());
 	}
 

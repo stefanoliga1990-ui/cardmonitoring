@@ -17,6 +17,7 @@
         </a>
         <nav id="authenticatedNavigation" class="main-nav" aria-label="Navigazione principale" hidden>
             <button class="nav-link is-active" type="button" data-view-link="dashboard">Dashboard</button>
+            <button class="nav-link" type="button" data-view-link="collections">Collezioni</button>
             <button class="nav-link" type="button" data-view-link="wizard">Nuovo monitoraggio</button>
         </nav>
         <div id="userMenu" class="user-menu" hidden>
@@ -189,6 +190,65 @@
             </section>
 
             <section id="monitoringGrid" class="monitoring-grid" aria-label="Monitoraggi attivi" hidden></section>
+        </section>
+
+        <section id="collectionsView" class="app-view collections-view" aria-labelledby="collectionsTitle" hidden>
+            <header class="dashboard-header collections-header">
+                <div>
+                    <p class="eyebrow">Collezioni</p>
+                    <h1 id="collectionsTitle">Le tue collezioni.</h1>
+                    <p class="intro-copy">
+                        Aggiungi un set, segna le carte che possiedi e parti da una carta per calcolare il prezzo medio.
+                    </p>
+                </div>
+                <button id="showAddCollectionButton" class="button button--primary" type="button">
+                    Aggiungi collezione
+                </button>
+            </header>
+
+            <div id="collectionsStatus" class="status-message dashboard-status" role="status" aria-live="polite" hidden></div>
+
+            <section id="addCollectionPanel" class="collection-add-panel" aria-label="Aggiungi una collezione" hidden>
+                <div class="field-group">
+                    <label for="collectionExpansionSelect">Set Pok&eacute;mon</label>
+                    <div class="select-wrap">
+                        <select id="collectionExpansionSelect">
+                            <option value="">Caricamento dei set&hellip;</option>
+                        </select>
+                    </div>
+                    <p class="field-help">La prima apertura del set salva anche il catalogo carte per riutilizzarlo in futuro.</p>
+                </div>
+                <div class="collection-add-actions">
+                    <button id="cancelAddCollectionButton" class="button button--secondary" type="button">Annulla</button>
+                    <button id="createCollectionButton" class="button button--primary" type="button">Crea collezione</button>
+                </div>
+            </section>
+
+            <section id="collectionsToolbar" class="collections-toolbar" hidden>
+                <div class="field-group">
+                    <label for="collectionSelect">Collezione attiva</label>
+                    <div class="select-wrap">
+                        <select id="collectionSelect"></select>
+                    </div>
+                </div>
+                <div id="collectionSyncStatus" class="collection-sync-status" role="status" aria-live="polite"></div>
+            </section>
+
+            <section id="collectionsLoading" class="dashboard-loading" aria-label="Caricamento collezioni">
+                <span class="loading-dot" aria-hidden="true"></span>
+                <p>Caricamento delle collezioni&hellip;</p>
+            </section>
+
+            <section id="collectionsEmpty" class="empty-dashboard" aria-labelledby="collectionsEmptyTitle" hidden>
+                <span class="empty-dashboard-mark" aria-hidden="true">◇</span>
+                <h2 id="collectionsEmptyTitle">Nessuna collezione attiva.</h2>
+                <p>Aggiungi un set per visualizzare tutte le carte e segnare quelle che possiedi.</p>
+                <button class="button button--primary" type="button" id="createFirstCollectionButton">
+                    Aggiungi la prima collezione
+                </button>
+            </section>
+
+            <section id="collectionCardGrid" class="collection-card-grid" aria-label="Carte della collezione" hidden></section>
         </section>
 
         <section id="accountView" class="app-view account-view" aria-labelledby="accountTitle" hidden>

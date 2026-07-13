@@ -118,9 +118,21 @@
         pollTimer: null
     };
 
+    const collectionsState = {
+        items: [],
+        detail: null,
+        selectedId: null,
+        expansions: [],
+        expansionsLoaded: false,
+        loading: false,
+        creating: false,
+        pollTimer: null
+    };
+
     const ROUTES = {
         dashboard: "#dashboard",
         wizard: "#wizard",
+        collections: "#collections",
         account: "#account"
     };
 
@@ -204,6 +216,20 @@
         createAnother: document.querySelector("#createAnotherButton"),
         goToDashboard: document.querySelector("#goToDashboardButton"),
         dashboardView: document.querySelector("#dashboardView"),
+        collectionsView: document.querySelector("#collectionsView"),
+        collectionsStatus: document.querySelector("#collectionsStatus"),
+        showAddCollection: document.querySelector("#showAddCollectionButton"),
+        addCollectionPanel: document.querySelector("#addCollectionPanel"),
+        collectionExpansionSelect: document.querySelector("#collectionExpansionSelect"),
+        cancelAddCollection: document.querySelector("#cancelAddCollectionButton"),
+        createCollection: document.querySelector("#createCollectionButton"),
+        createFirstCollection: document.querySelector("#createFirstCollectionButton"),
+        collectionsToolbar: document.querySelector("#collectionsToolbar"),
+        collectionSelect: document.querySelector("#collectionSelect"),
+        collectionSyncStatus: document.querySelector("#collectionSyncStatus"),
+        collectionsLoading: document.querySelector("#collectionsLoading"),
+        collectionsEmpty: document.querySelector("#collectionsEmpty"),
+        collectionCardGrid: document.querySelector("#collectionCardGrid"),
         wizardView: document.querySelector("#wizardView"),
         detailView: document.querySelector("#detailView"),
         dashboardStatus: document.querySelector("#dashboardStatus"),
@@ -340,6 +366,17 @@
         elements.activateMonitoring.addEventListener("click", activateMonitoring);
         elements.goToDashboard.addEventListener("click", showDashboard);
         elements.newMonitoring.addEventListener("click", showWizard);
+        elements.showAddCollection.addEventListener("click", showAddCollectionPanel);
+        elements.createFirstCollection.addEventListener("click", showAddCollectionPanel);
+        elements.cancelAddCollection.addEventListener("click", hideAddCollectionPanel);
+        elements.createCollection.addEventListener("click", createCollection);
+        elements.collectionSelect.addEventListener("change", () => {
+            collectionsState.selectedId = numberOrNull(elements.collectionSelect.value);
+            if (collectionsState.selectedId !== null) {
+                loadCollectionDetail(collectionsState.selectedId);
+            }
+        });
+        elements.collectionCardGrid.addEventListener("click", handleCollectionGridClick);
         elements.exportButton.addEventListener("click", toggleExportMenu);
         elements.exportMenu.addEventListener("click", chooseExportFormat);
         elements.exportConfirm.addEventListener("click", confirmDashboardExport);
@@ -382,6 +419,9 @@
                 event.preventDefault();
                 if (link.dataset.viewLink === "wizard") {
                     showWizard();
+                }
+                else if (link.dataset.viewLink === "collections") {
+                    showCollections();
                 }
                 else {
                     showDashboard();
@@ -501,6 +541,10 @@
             authState.user = null;
             authState.csrfToken = null;
             dashboardState.items = [];
+            collectionsState.items = [];
+            collectionsState.detail = null;
+            collectionsState.selectedId = null;
+            stopCollectionPolling();
             telegramState.linked = false;
             stopTelegramLinkPolling();
             stopImageBackfillPolling();
@@ -1267,6 +1311,10 @@
             await showAccount(false);
             return;
         }
+        if (route.view === "collections") {
+            await showCollections(false);
+            return;
+        }
         await showDashboard(false);
     }
 
@@ -1284,6 +1332,9 @@
         }
         if (hash === ROUTES.account) {
             return { view: "account" };
+        }
+        if (hash === ROUTES.collections) {
+            return { view: "collections" };
         }
         return { view: "dashboard" };
     }
@@ -1306,7 +1357,7 @@
         await loadDashboard();
     }
 
-    function showWizard(updateHash = true) {
+    async function showWizard(updateHash = true) {
         if (authState.user === null) {
             showAuth();
             return;
@@ -1319,8 +1370,20 @@
             resetWizard();
         }
         if (!state.expansionsLoaded && !state.loadingExpansions) {
-            loadExpansions();
+            await loadExpansions();
         }
+    }
+
+    async function showCollections(updateHash = true) {
+        if (authState.user === null) {
+            showAuth();
+            return;
+        }
+        if (updateHash) {
+            updateRoute(ROUTES.collections);
+        }
+        setActiveView("collections");
+        await loadCollections();
     }
 
     async function showAccount(updateHash = true) {
@@ -1335,12 +1398,333 @@
         await loadAccount();
     }
 
+    async function loadCollections() {
+        clearCollectionsStatus();
+        collectionsState.loading = true;
+        elements.collectionsLoading.hidden = false;
+        elements.collectionsEmpty.hidden = true;
+        elements.collectionCardGrid.hidden = true;
+        elements.collectionsToolbar.hidden = true;
+        try {
+            collectionsState.items = await requestJson("/api/collections");
+            renderCollectionSelect();
+            if (collectionsState.items.length === 0) {
+                collectionsState.detail = null;
+                elements.collectionsEmpty.hidden = false;
+                return;
+            }
+            if (
+                collectionsState.selectedId === null
+                || !collectionsState.items.some((item) => item.id === collectionsState.selectedId)
+            ) {
+                collectionsState.selectedId = collectionsState.items[0].id;
+            }
+            elements.collectionSelect.value = String(collectionsState.selectedId);
+            await loadCollectionDetail(collectionsState.selectedId);
+        }
+        catch (error) {
+            setCollectionsStatus(errorMessage(error, "Impossibile caricare le collezioni."), "error");
+        }
+        finally {
+            collectionsState.loading = false;
+            elements.collectionsLoading.hidden = true;
+        }
+    }
+
+    async function loadCollectionDetail(collectionId) {
+        if (collectionId === null) {
+            return;
+        }
+        clearCollectionsStatus();
+        elements.collectionCardGrid.hidden = true;
+        elements.collectionsLoading.hidden = false;
+        try {
+            collectionsState.detail = await requestJson(`/api/collections/${collectionId}`);
+            renderCollectionDetail();
+        }
+        catch (error) {
+            setCollectionsStatus(errorMessage(error, "Impossibile caricare la collezione."), "error");
+        }
+        finally {
+            elements.collectionsLoading.hidden = true;
+        }
+    }
+
+    function renderCollectionSelect() {
+        elements.collectionSelect.replaceChildren();
+        collectionsState.items.forEach((collection) => {
+            elements.collectionSelect.append(new Option(
+                `${collection.name} Â· ${collection.code} (${collection.cardCount})`,
+                String(collection.id)
+            ));
+        });
+        elements.collectionsToolbar.hidden = collectionsState.items.length === 0;
+    }
+
+    function renderCollectionDetail() {
+        const detail = collectionsState.detail;
+        if (detail === null) {
+            elements.collectionCardGrid.replaceChildren();
+            elements.collectionCardGrid.hidden = true;
+            return;
+        }
+        elements.collectionsToolbar.hidden = false;
+        elements.collectionsEmpty.hidden = true;
+        renderCollectionSyncStatus(detail);
+        elements.collectionCardGrid.replaceChildren();
+        detail.cards.forEach((card) => {
+            elements.collectionCardGrid.append(renderCollectionCard(card));
+        });
+        elements.collectionCardGrid.hidden = false;
+        scheduleCollectionPolling(detail);
+    }
+
+    function renderCollectionSyncStatus(detail) {
+        const statusLabels = {
+            NOT_STARTED: "Immagini non ancora sincronizzate",
+            RUNNING: "Sincronizzazione immagini in corso",
+            COMPLETED: "Immagini sincronizzate",
+            PARTIAL_FAILED: "Sincronizzazione immagini completata parzialmente"
+        };
+        elements.collectionSyncStatus.textContent = statusLabels[detail.imageSyncStatus] || "";
+        elements.collectionSyncStatus.classList.toggle("is-warning", detail.imageSyncStatus === "PARTIAL_FAILED");
+        if (detail.lastError) {
+            elements.collectionSyncStatus.textContent += ` Â· ${detail.lastError}`;
+        }
+    }
+
+    function scheduleCollectionPolling(detail) {
+        stopCollectionPolling();
+        if (!["NOT_STARTED", "RUNNING"].includes(detail.imageSyncStatus)) {
+            return;
+        }
+        collectionsState.pollTimer = window.setTimeout(async () => {
+            if (!elements.collectionsView.hidden && collectionsState.selectedId !== null) {
+                await loadCollectionDetail(collectionsState.selectedId);
+            }
+        }, 5000);
+    }
+
+    function stopCollectionPolling() {
+        if (collectionsState.pollTimer !== null) {
+            window.clearTimeout(collectionsState.pollTimer);
+            collectionsState.pollTimer = null;
+        }
+    }
+
+    function renderCollectionCard(card) {
+        const article = createElement("article", "collection-card");
+        article.dataset.cardId = String(card.id);
+        article.dataset.expansionId = String(card.expansionId);
+        article.dataset.blueprintId = String(card.blueprintId);
+
+        const ownedButton = createElement("button", "collection-owned-toggle", card.owned ? "✓" : "");
+        ownedButton.type = "button";
+        ownedButton.title = card.owned ? "Segna come non posseduta" : "Segna come posseduta";
+        ownedButton.setAttribute("aria-label", ownedButton.title);
+        ownedButton.dataset.action = "toggle-owned";
+        ownedButton.dataset.owned = String(card.owned);
+        ownedButton.classList.toggle("is-owned", card.owned);
+
+        const image = createElement("div", "card-image-preview collection-card-image");
+        renderCardImage(image, card, "small");
+
+        const badges = createElement("div", "collection-card-badges");
+        if (card.owned) {
+            badges.append(createElement("span", "collection-badge collection-badge--owned", "Ce l'ho"));
+        }
+        if (card.activeMonitoring) {
+            badges.append(createElement("span", "collection-badge collection-badge--monitoring", "Monitoraggio attivo"));
+        }
+
+        const details = createElement("div", "collection-card-details");
+        details.append(
+            createElement("strong", "", card.cardName),
+            createElement("span", "", card.cardVersion || "Versione non disponibile")
+        );
+        if (card.collectorNumber) {
+            details.append(createElement("small", "", `NÂ° ${card.collectorNumber}`));
+        }
+        details.append(badges);
+
+        const priceButton = createElement("button", "button button--secondary", "Calcola prezzo");
+        priceButton.type = "button";
+        priceButton.dataset.action = "collection-price";
+
+        article.append(ownedButton, image, details, priceButton);
+        return article;
+    }
+
+    async function handleCollectionGridClick(event) {
+        const button = event.target.closest("button[data-action]");
+        if (!button) {
+            return;
+        }
+        const card = button.closest(".collection-card");
+        const cardId = card ? numberOrNull(card.dataset.cardId) : null;
+        if (cardId === null || collectionsState.selectedId === null) {
+            return;
+        }
+        if (button.dataset.action === "toggle-owned") {
+            await toggleCollectionCardOwnership(cardId, button.dataset.owned !== "true", button);
+            return;
+        }
+        if (button.dataset.action === "collection-price") {
+            await startPriceFromCollectionCard(card, button);
+        }
+    }
+
+    async function toggleCollectionCardOwnership(cardId, owned, button) {
+        const originalLabel = button.textContent;
+        button.disabled = true;
+        try {
+            collectionsState.detail = await requestJson(
+                `/api/collections/${collectionsState.selectedId}/cards/${cardId}/owned`,
+                {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ owned })
+                }
+            );
+            renderCollectionDetail();
+        }
+        catch (error) {
+            setCollectionsStatus(errorMessage(error, "Aggiornamento della carta non riuscito."), "error");
+        }
+        finally {
+            button.disabled = false;
+            button.textContent = originalLabel;
+        }
+    }
+
+    async function startPriceFromCollectionCard(card, button) {
+        const expansionId = numberOrNull(card.dataset.expansionId);
+        const blueprintId = numberOrNull(card.dataset.blueprintId);
+        if (expansionId === null || blueprintId === null) {
+            setCollectionsStatus("Carta non valida per il calcolo prezzo.", "error");
+            return;
+        }
+        const originalLabel = button.textContent;
+        button.disabled = true;
+        button.textContent = "Aperturaâ€¦";
+        try {
+            await prefillWizardFromCollection(expansionId, blueprintId);
+            setStatus("Carta selezionata dalla collezione. Ora scegli lingua, condizione e variante.", "info");
+        }
+        catch (error) {
+            setCollectionsStatus(errorMessage(error, "Non Ã¨ stato possibile aprire il calcolo prezzo."), "error");
+        }
+        finally {
+            button.disabled = false;
+            button.textContent = originalLabel;
+        }
+    }
+
+    async function prefillWizardFromCollection(expansionId, blueprintId) {
+        await showWizard();
+        state.expansionId = expansionId;
+        elements.expansionSelect.value = String(expansionId);
+        await loadBlueprints(expansionId);
+        state.blueprintId = blueprintId;
+        elements.blueprintSelect.value = String(blueprintId);
+        if (selectedExpansion() === undefined || selectedBlueprint() === undefined) {
+            state.blueprintId = null;
+            updateActions();
+            throw new Error("La carta non Ã¨ piÃ¹ disponibile nel catalogo CardTrader.");
+        }
+        state.step = 3;
+        clearStatus();
+        renderStep();
+    }
+
+    async function showAddCollectionPanel() {
+        clearCollectionsStatus();
+        elements.addCollectionPanel.hidden = false;
+        await loadCollectionExpansions();
+        elements.collectionExpansionSelect.focus();
+    }
+
+    function hideAddCollectionPanel() {
+        elements.addCollectionPanel.hidden = true;
+        elements.collectionExpansionSelect.value = "";
+    }
+
+    async function loadCollectionExpansions() {
+        if (collectionsState.expansionsLoaded) {
+            populateCollectionExpansionSelect();
+            return;
+        }
+        setSelectState(elements.collectionExpansionSelect, "Caricamento dei setâ€¦", true);
+        try {
+            collectionsState.expansions = await requestJson("/api/catalog/expansions");
+            collectionsState.expansionsLoaded = true;
+            populateCollectionExpansionSelect();
+        }
+        catch (error) {
+            setSelectState(elements.collectionExpansionSelect, "Caricamento non riuscito", true);
+            setCollectionsStatus(errorMessage(error, "Impossibile caricare i set."), "error");
+        }
+    }
+
+    function populateCollectionExpansionSelect() {
+        elements.collectionExpansionSelect.replaceChildren(new Option("Seleziona un set", ""));
+        collectionsState.expansions.forEach((expansion) => {
+            elements.collectionExpansionSelect.append(new Option(`${expansion.name} Â· ${expansion.code}`, expansion.id));
+        });
+        elements.collectionExpansionSelect.disabled = false;
+    }
+
+    async function createCollection() {
+        const expansionId = numberOrNull(elements.collectionExpansionSelect.value);
+        if (expansionId === null) {
+            setCollectionsStatus("Seleziona un set da aggiungere.", "error");
+            return;
+        }
+        elements.createCollection.disabled = true;
+        showLoadingOverlay(
+            "Creazione collezione",
+            "Carichiamo le carte del set e prepariamo la collezione.");
+        try {
+            const detail = await requestJson("/api/collections", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ expansionId })
+            });
+            collectionsState.selectedId = detail.id;
+            hideAddCollectionPanel();
+            await loadCollections();
+            setCollectionsStatus(
+                "Collezione aggiunta. Le immagini possono continuare a sincronizzarsi in background.",
+                "info"
+            );
+        }
+        catch (error) {
+            setCollectionsStatus(errorMessage(error, "Creazione della collezione non riuscita."), "error");
+        }
+        finally {
+            elements.createCollection.disabled = false;
+            hideLoadingOverlay();
+        }
+    }
+
+    function setCollectionsStatus(message, type) {
+        setPanelStatus(elements.collectionsStatus, message, type);
+    }
+
+    function clearCollectionsStatus() {
+        clearPanelStatus(elements.collectionsStatus);
+    }
+
     function setActiveView(view) {
         elements.authView.hidden = view !== "auth";
         elements.dashboardView.hidden = view !== "dashboard";
+        elements.collectionsView.hidden = view !== "collections";
         elements.accountView.hidden = view !== "account";
         elements.wizardView.hidden = view !== "wizard";
         elements.detailView.hidden = view !== "detail";
+        if (view !== "collections") {
+            stopCollectionPolling();
+        }
         document.querySelectorAll(".nav-link[data-view-link]").forEach((link) => {
             link.classList.toggle("is-active", link.dataset.viewLink === view);
         });

@@ -1882,6 +1882,157 @@ body.is-loading-overlay-visible {
     margin-right: auto;
 }
 
+.collections-view {
+    display: block;
+}
+
+.collection-add-panel,
+.collections-toolbar {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 22px;
+    padding: 20px;
+    border: 1px solid rgba(23, 35, 31, 0.1);
+    border-radius: 18px;
+    background: var(--surface);
+    box-shadow: 0 10px 26px rgba(24, 43, 34, 0.06);
+}
+
+.collection-add-panel .field-group,
+.collections-toolbar .field-group {
+    width: min(520px, 100%);
+    max-width: none;
+}
+
+.collection-add-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.collection-sync-status {
+    max-width: 430px;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 720;
+    text-align: right;
+}
+
+.collection-sync-status.is-warning {
+    color: #8b4931;
+}
+
+.collection-card-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.collection-card {
+    position: relative;
+    display: grid;
+    gap: 14px;
+    align-content: start;
+    padding: 18px;
+    border: 1px solid rgba(23, 35, 31, 0.1);
+    border-radius: 18px;
+    background: var(--surface);
+    box-shadow: 0 12px 32px rgba(24, 43, 34, 0.07);
+}
+
+.collection-owned-toggle {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 2;
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border: 2px solid #cbd4cf;
+    border-radius: 50%;
+    color: white;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 8px 18px rgba(24, 43, 34, 0.12);
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 900;
+}
+
+.collection-owned-toggle:hover:not(:disabled) {
+    border-color: var(--success);
+}
+
+.collection-owned-toggle.is-owned {
+    border-color: var(--success);
+    background: var(--success);
+}
+
+.collection-card-image {
+    width: min(168px, 72%);
+    justify-self: center;
+    border-radius: 14px;
+}
+
+.collection-card-details {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+    text-align: center;
+}
+
+.collection-card-details strong {
+    overflow: hidden;
+    font-size: 1.04rem;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.collection-card-details span,
+.collection-card-details small {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 0.76rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.collection-card-badges {
+    display: flex;
+    min-height: 25px;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.collection-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 0 8px;
+    border-radius: 999px;
+    font-size: 0.66rem;
+    font-weight: 820;
+}
+
+.collection-badge--owned {
+    color: #1f694a;
+    background: #e4f4eb;
+}
+
+.collection-badge--monitoring {
+    color: var(--accent-dark);
+    background: var(--accent-soft);
+}
+
+.collection-card > .button {
+    width: 100%;
+    margin-top: 2px;
+}
+
 .back-link {
     margin-bottom: 28px;
     padding: 0;
@@ -2348,6 +2499,7 @@ body.is-loading-overlay-visible {
     }
 
     .monitoring-grid,
+    .collection-card-grid,
     .metric-grid,
     .detail-layout,
     .telegram-panel-content,
@@ -2359,14 +2511,26 @@ body.is-loading-overlay-visible {
     .tool-actions .button,
     .account-actions .button,
     .account-form-actions .button,
+    .collection-add-actions .button,
     .confirm-actions .button {
         width: 100%;
     }
 
     .account-actions,
     .account-form-actions,
+    .collection-add-actions,
     .confirm-actions {
         flex-direction: column;
+    }
+
+    .collection-add-panel,
+    .collections-toolbar {
+        display: grid;
+        align-items: start;
+    }
+
+    .collection-sync-status {
+        text-align: left;
     }
 
     .monitoring-card-actions {
