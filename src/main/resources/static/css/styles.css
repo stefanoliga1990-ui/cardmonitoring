@@ -1604,9 +1604,12 @@ body.is-loading-overlay-visible {
     letter-spacing: -0.045em;
 }
 
-.monitoring-price--purchase strong,
 .metric-card--purchase strong {
     color: #2563eb;
+}
+
+.monitoring-price--purchase strong {
+    color: var(--muted);
 }
 
 .monitoring-updated {
