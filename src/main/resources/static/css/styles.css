@@ -984,6 +984,55 @@ select:disabled {
     max-width: 680px;
 }
 
+.dashboard-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.export-menu {
+    position: relative;
+}
+
+.export-button {
+    min-width: 118px;
+}
+
+.export-menu-list {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 20;
+    display: grid;
+    min-width: 136px;
+    overflow: hidden;
+    border: 1px solid rgba(23, 35, 31, 0.1);
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+}
+
+.export-menu-list[hidden] {
+    display: none;
+}
+
+.export-menu-list button {
+    min-height: 42px;
+    padding: 0 16px;
+    color: var(--ink);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 0.84rem;
+    font-weight: 800;
+    text-align: left;
+}
+
+.export-menu-list button:hover,
+.export-menu-list button:focus-visible {
+    background: var(--surface-soft);
+    outline: none;
+}
+
 .dashboard-status {
     margin: 0 0 22px;
 }
@@ -1349,6 +1398,46 @@ select:disabled {
 
 @keyframes spin {
     to { transform: rotate(360deg); }
+}
+
+.confirm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background:
+        radial-gradient(circle at 18% 12%, rgba(217, 95, 50, 0.12), transparent 28rem),
+        rgba(237, 241, 236, 0.76);
+    backdrop-filter: blur(6px);
+}
+
+.confirm-overlay[hidden] {
+    display: none;
+}
+
+.confirm-dialog {
+    display: grid;
+    gap: 22px;
+    width: min(390px, 100%);
+    padding: 30px 28px;
+    border: 1px solid rgba(23, 35, 31, 0.1);
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: var(--shadow);
+    color: var(--ink);
+    text-align: center;
+}
+
+.confirm-dialog strong {
+    font-size: 1.08rem;
+}
+
+.confirm-actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
 }
 
 .loading-overlay {
@@ -2099,6 +2188,21 @@ body.is-loading-overlay-visible {
         display: grid;
         align-items: start;
         gap: 22px;
+    }
+
+    .dashboard-actions {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .export-menu {
+        width: 100%;
+    }
+
+    .export-menu-list {
+        left: 0;
+        right: 0;
     }
 
     .dashboard-header .button,

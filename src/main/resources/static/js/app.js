@@ -91,6 +91,11 @@
         loading: false
     };
 
+    const exportState = {
+        format: null,
+        exporting: false
+    };
+
     const authState = {
         user: null,
         csrfHeader: "X-XSRF-TOKEN",
@@ -215,6 +220,12 @@
         dashboardEmpty: document.querySelector("#dashboardEmpty"),
         monitoringGrid: document.querySelector("#monitoringGrid"),
         newMonitoring: document.querySelector("#newMonitoringButton"),
+        exportMenuContainer: document.querySelector("#exportMenuContainer"),
+        exportButton: document.querySelector("#exportButton"),
+        exportMenu: document.querySelector("#exportMenu"),
+        exportConfirmOverlay: document.querySelector("#exportConfirmOverlay"),
+        exportConfirm: document.querySelector("#exportConfirmButton"),
+        exportCancel: document.querySelector("#exportCancelButton"),
         backToDashboard: document.querySelector("#backToDashboardButton"),
         detailRefresh: document.querySelector("#detailRefreshButton"),
         detailPurchasePrice: document.querySelector("#detailPurchasePriceButton"),
@@ -303,6 +314,10 @@
         elements.activateMonitoring.addEventListener("click", activateMonitoring);
         elements.goToDashboard.addEventListener("click", showDashboard);
         elements.newMonitoring.addEventListener("click", showWizard);
+        elements.exportButton.addEventListener("click", toggleExportMenu);
+        elements.exportMenu.addEventListener("click", chooseExportFormat);
+        elements.exportConfirm.addEventListener("click", confirmDashboardExport);
+        elements.exportCancel.addEventListener("click", hideExportConfirmation);
         elements.telegramToggle.addEventListener("click", toggleTelegramPanel);
         elements.telegramCreateLink.addEventListener("click", createTelegramLink);
         elements.telegramTest.addEventListener("click", sendTelegramTestMessage);
@@ -314,6 +329,17 @@
         elements.detailPurchasePrice.addEventListener("click", () => editPurchasePrice(dashboardState.selectedMonitoringId, true));
         elements.detailDeactivate.addEventListener("click", () => deactivateMonitoring(dashboardState.selectedMonitoringId));
         elements.monitoringGrid.addEventListener("click", handleMonitoringGridClick);
+        document.addEventListener("click", (event) => {
+            if (!elements.exportMenuContainer.contains(event.target)) {
+                closeExportMenu();
+            }
+        });
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") {
+                closeExportMenu();
+                hideExportConfirmation();
+            }
+        });
         window.addEventListener("popstate", () => {
             if (authState.user !== null) {
                 showCurrentRoute();
@@ -1322,6 +1348,64 @@
         });
         elements.dashboardEmpty.hidden = true;
         elements.monitoringGrid.hidden = false;
+    }
+
+    function toggleExportMenu(event) {
+        event.stopPropagation();
+        const nextOpen = elements.exportMenu.hidden;
+        elements.exportMenu.hidden = !nextOpen;
+        elements.exportButton.setAttribute("aria-expanded", String(nextOpen));
+    }
+
+    function closeExportMenu() {
+        elements.exportMenu.hidden = true;
+        elements.exportButton.setAttribute("aria-expanded", "false");
+    }
+
+    function chooseExportFormat(event) {
+        const button = event.target.closest("[data-export-format]");
+        if (!button) {
+            return;
+        }
+        exportState.format = button.dataset.exportFormat;
+        closeExportMenu();
+        showExportConfirmation();
+    }
+
+    function showExportConfirmation() {
+        elements.exportConfirmOverlay.hidden = false;
+        elements.exportConfirm.focus({ preventScroll: true });
+    }
+
+    function hideExportConfirmation() {
+        elements.exportConfirmOverlay.hidden = true;
+    }
+
+    async function confirmDashboardExport() {
+        if (exportState.exporting || !exportState.format) {
+            return;
+        }
+        hideExportConfirmation();
+        await exportDashboard(exportState.format);
+    }
+
+    async function exportDashboard(format) {
+        exportState.exporting = true;
+        clearDashboardStatus();
+        showLoadingOverlay("Export in corso", "Preparazione del file dei tuoi monitoraggi.");
+
+        try {
+            const response = await requestFile(`/api/monitorings/export?format=${encodeURIComponent(format)}`);
+            downloadFile(response.blob, response.filename || `card-monitor-export.${format}`);
+            setDashboardStatus("Export completato correttamente.", "info");
+        }
+        catch (error) {
+            setDashboardStatus(errorMessage(error, "Non è stato possibile esportare i monitoraggi."), "error");
+        }
+        finally {
+            exportState.exporting = false;
+            hideLoadingOverlay();
+        }
     }
 
     async function loadTelegramStatus() {
@@ -2342,6 +2426,68 @@
             throw error;
         }
         return body;
+    }
+
+    async function requestFile(url, options = {}) {
+        let response;
+        const method = (options.method || "GET").toUpperCase();
+        const headers = {
+            ...(options.headers || {})
+        };
+        if (!["GET", "HEAD", "OPTIONS"].includes(method) && authState.csrfToken !== null) {
+            headers[authState.csrfHeader] = authState.csrfToken;
+        }
+        try {
+            response = await fetch(url, {
+                ...options,
+                credentials: "same-origin",
+                headers
+            });
+        }
+        catch (error) {
+            throw new Error("Il server non è raggiungibile. Controlla la connessione e riprova.");
+        }
+
+        if (!response.ok) {
+            let detail = "La richiesta non è andata a buon fine.";
+            try {
+                const body = await response.json();
+                detail = (body && body.detail) || detail;
+            }
+            catch (error) {
+                // The file endpoint may return an empty or non-JSON error body.
+            }
+            const requestError = new Error(detail);
+            requestError.status = response.status;
+            if (response.status === 401) {
+                showAuth("La sessione è scaduta. Accedi nuovamente.");
+            }
+            throw requestError;
+        }
+
+        return {
+            blob: await response.blob(),
+            filename: filenameFromContentDisposition(response.headers.get("Content-Disposition"))
+        };
+    }
+
+    function filenameFromContentDisposition(contentDisposition) {
+        if (!contentDisposition) {
+            return "";
+        }
+        const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(contentDisposition);
+        return match ? decodeURIComponent(match[1]) : "";
+    }
+
+    function downloadFile(blob, filename) {
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = filename;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
     }
 
     function setStatus(message, type) {

@@ -35,12 +35,15 @@ class MonitoringControllerTest {
 	@Mock
 	private MonitoringService monitoringService;
 
+	@Mock
+	private MonitoringExportService monitoringExportService;
+
 	private MockMvc mockMvc;
 
 	@BeforeEach
 	void setUp() {
 		mockMvc = MockMvcBuilders
-				.standaloneSetup(new MonitoringController(monitoringService))
+				.standaloneSetup(new MonitoringController(monitoringService, monitoringExportService))
 				.setControllerAdvice(new ApiExceptionHandler())
 				.build();
 	}
@@ -112,6 +115,23 @@ class MonitoringControllerTest {
 				.andExpect(status().isNoContent());
 
 		verify(monitoringService).deactivate(42L, 7L);
+	}
+
+	@Test
+	void exportsActiveMonitoringsAsAttachment() throws Exception {
+		when(monitoringExportService.export(42L, MonitoringExportService.ExportFormat.CSV))
+				.thenReturn(new MonitoringExportService.ExportedFile(
+						"card-monitor-export.csv",
+						"text/csv;charset=UTF-8",
+						"monitoraggio_id\n".getBytes()));
+
+		mockMvc.perform(get("/api/monitorings/export")
+				.param("format", "csv")
+				.principal(authentication()))
+				.andExpect(status().isOk())
+				.andExpect(header().string("Content-Disposition",
+						"attachment; filename=\"card-monitor-export.csv\""))
+				.andExpect(header().string("Content-Type", "text/csv;charset=UTF-8"));
 	}
 
 	@Test
