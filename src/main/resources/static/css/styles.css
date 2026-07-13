@@ -115,7 +115,17 @@ button {
 
 .user-name-button {
     color: var(--ink);
-    font-weight: 850;
+    padding: 9px 13px;
+    border-radius: 9px;
+    background: rgba(23, 35, 31, 0.06);
+    font-size: 0.81rem;
+    font-weight: 760;
+    text-decoration: none;
+}
+
+.user-name-button:hover {
+    color: var(--ink);
+    background: rgba(23, 35, 31, 0.09);
 }
 
 .nav-link {
