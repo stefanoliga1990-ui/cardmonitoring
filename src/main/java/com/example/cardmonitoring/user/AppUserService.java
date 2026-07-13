@@ -12,6 +12,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.cardmonitoring.monitoring.MonitoringRepository;
+import com.example.cardmonitoring.telegram.TelegramLinkRequestRepository;
+
 @Service
 public class AppUserService implements UserDetailsService {
 
@@ -21,10 +24,18 @@ public class AppUserService implements UserDetailsService {
 
 	private final AppUserRepository appUserRepository;
 	private final PasswordEncoder passwordEncoder;
+	private final MonitoringRepository monitoringRepository;
+	private final TelegramLinkRequestRepository telegramLinkRequestRepository;
 
-	public AppUserService(AppUserRepository appUserRepository, PasswordEncoder passwordEncoder) {
+	public AppUserService(
+			AppUserRepository appUserRepository,
+			PasswordEncoder passwordEncoder,
+			MonitoringRepository monitoringRepository,
+			TelegramLinkRequestRepository telegramLinkRequestRepository) {
 		this.appUserRepository = appUserRepository;
 		this.passwordEncoder = passwordEncoder;
+		this.monitoringRepository = monitoringRepository;
+		this.telegramLinkRequestRepository = telegramLinkRequestRepository;
 	}
 
 	@Transactional
@@ -59,6 +70,28 @@ public class AppUserService implements UserDetailsService {
 				.orElseThrow(() -> new UsernameNotFoundException("User not found"));
 	}
 
+	@Transactional(readOnly = true)
+	public AppUser profile(long userId) {
+		return requireUser(userId);
+	}
+
+	@Transactional
+	public void changePassword(long userId, String currentPassword, String newPassword) {
+		AppUser user = requireUser(userId);
+		requireMatchingPassword(user, currentPassword);
+		validatePassword(newPassword);
+		user.changePasswordHash(passwordEncoder.encode(newPassword));
+	}
+
+	@Transactional
+	public void deleteAccount(long userId, String currentPassword) {
+		AppUser user = requireUser(userId);
+		requireMatchingPassword(user, currentPassword);
+		telegramLinkRequestRepository.deleteByUserId(userId);
+		monitoringRepository.deleteByOwnerId(userId);
+		appUserRepository.delete(user);
+	}
+
 	public static String normalizeUsername(String username) {
 		String normalized = username == null ? "" : username.trim().toLowerCase(Locale.ROOT);
 		if (!USERNAME.matcher(normalized).matches() || normalized.startsWith("__")) {
@@ -66,6 +99,17 @@ public class AppUserService implements UserDetailsService {
 					"username must contain 3 to 50 letters, numbers, dots, hyphens or underscores");
 		}
 		return normalized;
+	}
+
+	private AppUser requireUser(long userId) {
+		return appUserRepository.findById(userId)
+				.orElseThrow(() -> new UsernameNotFoundException("User not found"));
+	}
+
+	private void requireMatchingPassword(AppUser user, String password) {
+		if (password == null || !passwordEncoder.matches(password, user.getPasswordHash())) {
+			throw new IllegalArgumentException("La password attuale non è corretta");
+		}
 	}
 
 	private static void validatePassword(String password) {

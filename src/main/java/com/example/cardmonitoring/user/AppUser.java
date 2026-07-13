@@ -120,6 +120,10 @@ public class AppUser {
 		this.telegramLastError = normalizeOptional(error, 1000);
 	}
 
+	public void changePasswordHash(String passwordHash) {
+		this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash is required");
+	}
+
 	private static String normalizeRequired(String value, String fieldName, int maximumLength) {
 		String normalized = normalizeOptional(value, maximumLength);
 		if (normalized == null) {

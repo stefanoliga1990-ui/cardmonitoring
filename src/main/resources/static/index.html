@@ -20,7 +20,7 @@
             <button class="nav-link" type="button" data-view-link="wizard">Nuovo monitoraggio</button>
         </nav>
         <div id="userMenu" class="user-menu" hidden>
-            <span id="currentUsername"></span>
+            <button id="currentUsername" class="text-button user-name-button" type="button"></button>
             <button id="logoutButton" class="text-button" type="button">Esci</button>
         </div>
     </header>
@@ -189,6 +189,61 @@
             </section>
 
             <section id="monitoringGrid" class="monitoring-grid" aria-label="Monitoraggi attivi" hidden></section>
+        </section>
+
+        <section id="accountView" class="app-view account-view" aria-labelledby="accountTitle" hidden>
+            <button id="backToDashboardFromAccountButton" class="back-link" type="button">&larr; Torna alla dashboard</button>
+
+            <header class="detail-header">
+                <div>
+                    <p class="eyebrow">Account</p>
+                    <h1 id="accountTitle" tabindex="-1">Il tuo profilo.</h1>
+                    <p class="intro-copy">Gestisci credenziali e dati collegati al tuo account.</p>
+                </div>
+            </header>
+
+            <div id="accountStatus" class="status-message dashboard-status" role="status" aria-live="polite" hidden></div>
+
+            <section class="account-card" aria-label="Dati account">
+                <dl class="account-details">
+                    <div>
+                        <dt>Nome utente</dt>
+                        <dd id="accountUsername">&mdash;</dd>
+                    </div>
+                    <div>
+                        <dt>Data di iscrizione</dt>
+                        <dd id="accountCreatedAt">&mdash;</dd>
+                    </div>
+                </dl>
+
+                <div class="account-actions">
+                    <button id="showChangePasswordButton" class="button button--secondary" type="button">
+                        Modifica password
+                    </button>
+                    <button id="showDeleteAccountButton" class="button button--danger" type="button">
+                        Elimina account
+                    </button>
+                </div>
+
+                <form id="changePasswordForm" class="account-form" hidden>
+                    <div class="field-group">
+                        <label for="currentPasswordInput">Password attuale</label>
+                        <input id="currentPasswordInput" type="password" autocomplete="current-password" required minlength="8" maxlength="72">
+                    </div>
+                    <div class="field-group">
+                        <label for="newPasswordInput">Nuova password</label>
+                        <input id="newPasswordInput" type="password" autocomplete="new-password" required minlength="8" maxlength="72">
+                    </div>
+                    <div class="field-group">
+                        <label for="confirmNewPasswordInput">Conferma nuova password</label>
+                        <input id="confirmNewPasswordInput" type="password" autocomplete="new-password" required minlength="8" maxlength="72">
+                    </div>
+                    <div class="account-form-actions">
+                        <button id="cancelChangePasswordButton" class="button button--secondary" type="button">Annulla</button>
+                        <button class="button button--primary" type="submit">Salva password</button>
+                    </div>
+                </form>
+            </section>
         </section>
 
         <section id="detailView" class="app-view detail-view" aria-labelledby="detailTitle" hidden>
@@ -573,6 +628,23 @@
                 <button id="exportConfirmButton" class="button button--primary" type="button">S&igrave;</button>
             </div>
         </div>
+    </div>
+
+    <div id="deleteAccountOverlay" class="confirm-overlay" role="dialog" aria-modal="true"
+         aria-labelledby="deleteAccountTitle" hidden>
+        <form id="deleteAccountForm" class="confirm-dialog confirm-dialog--danger">
+            <strong id="deleteAccountTitle">Sei sicuro di voler eliminare l&apos;account?</strong>
+            <p>Eliminando l&apos;account perderai tutti i tuoi monitoraggi.</p>
+            <div id="deleteAccountStatus" class="status-message" role="status" aria-live="polite" hidden></div>
+            <div class="field-group">
+                <label for="deleteAccountPasswordInput">Password attuale</label>
+                <input id="deleteAccountPasswordInput" type="password" autocomplete="current-password" required minlength="8" maxlength="72">
+            </div>
+            <div class="confirm-actions">
+                <button id="cancelDeleteAccountButton" class="button button--secondary" type="button">Annulla</button>
+                <button class="button button--danger" type="submit">S&igrave;</button>
+            </div>
+        </form>
     </div>
 
     <div id="loadingOverlay" class="loading-overlay" role="status" aria-live="polite" aria-modal="true" hidden>

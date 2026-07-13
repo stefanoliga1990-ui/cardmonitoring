@@ -1,8 +1,10 @@
 package com.example.cardmonitoring.security;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -102,6 +104,68 @@ class SecurityIntegrationTest {
 						"""))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+	}
+
+	@Test
+	void managesAccountProfilePasswordAndDeletion() throws Exception {
+		MvcResult registration = mockMvc.perform(post("/api/auth/register")
+				.with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"username":"accountuser","password":"password-sicura"}
+						"""))
+				.andExpect(status().isCreated())
+				.andReturn();
+		MockHttpSession session = (MockHttpSession) registration.getRequest().getSession(false);
+
+		mockMvc.perform(get("/api/account").session(session))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.username").value("accountuser"))
+				.andExpect(jsonPath("$.createdAt").isNotEmpty());
+
+		mockMvc.perform(put("/api/account/password")
+				.session(session)
+				.with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"currentPassword":"password-sicura","newPassword":"password-nuova"}
+						"""))
+				.andExpect(status().isNoContent());
+
+		mockMvc.perform(post("/api/auth/login")
+				.with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"username":"accountuser","password":"password-sicura"}
+						"""))
+				.andExpect(status().isUnauthorized());
+		MvcResult loginWithNewPassword = mockMvc.perform(post("/api/auth/login")
+				.with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"username":"accountuser","password":"password-nuova"}
+						"""))
+				.andExpect(status().isOk())
+				.andReturn();
+		MockHttpSession updatedSession = (MockHttpSession) loginWithNewPassword.getRequest().getSession(false);
+
+		mockMvc.perform(delete("/api/account")
+				.session(updatedSession)
+				.with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"currentPassword":"password-nuova"}
+						"""))
+				.andExpect(status().isNoContent());
+		mockMvc.perform(get("/api/account").session(updatedSession))
+				.andExpect(status().isUnauthorized());
+		mockMvc.perform(post("/api/auth/login")
+				.with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"username":"accountuser","password":"password-nuova"}
+						"""))
+				.andExpect(status().isUnauthorized());
 	}
 
 	@Test

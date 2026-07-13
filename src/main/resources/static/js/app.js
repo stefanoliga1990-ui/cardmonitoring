@@ -120,7 +120,8 @@
 
     const ROUTES = {
         dashboard: "#dashboard",
-        wizard: "#wizard"
+        wizard: "#wizard",
+        account: "#account"
     };
 
     const elements = {
@@ -129,6 +130,23 @@
         userMenu: document.querySelector("#userMenu"),
         currentUsername: document.querySelector("#currentUsername"),
         logout: document.querySelector("#logoutButton"),
+        accountView: document.querySelector("#accountView"),
+        accountStatus: document.querySelector("#accountStatus"),
+        accountUsername: document.querySelector("#accountUsername"),
+        accountCreatedAt: document.querySelector("#accountCreatedAt"),
+        backToDashboardFromAccount: document.querySelector("#backToDashboardFromAccountButton"),
+        showChangePassword: document.querySelector("#showChangePasswordButton"),
+        showDeleteAccount: document.querySelector("#showDeleteAccountButton"),
+        changePasswordForm: document.querySelector("#changePasswordForm"),
+        currentPasswordInput: document.querySelector("#currentPasswordInput"),
+        newPasswordInput: document.querySelector("#newPasswordInput"),
+        confirmNewPasswordInput: document.querySelector("#confirmNewPasswordInput"),
+        cancelChangePassword: document.querySelector("#cancelChangePasswordButton"),
+        deleteAccountOverlay: document.querySelector("#deleteAccountOverlay"),
+        deleteAccountForm: document.querySelector("#deleteAccountForm"),
+        deleteAccountPassword: document.querySelector("#deleteAccountPasswordInput"),
+        deleteAccountStatus: document.querySelector("#deleteAccountStatus"),
+        cancelDeleteAccount: document.querySelector("#cancelDeleteAccountButton"),
         authStatus: document.querySelector("#authStatus"),
         loginForm: document.querySelector("#loginForm"),
         registerForm: document.querySelector("#registerForm"),
@@ -252,7 +270,15 @@
         elements.registerForm.addEventListener("submit", submitRegistration);
         elements.showLogin.addEventListener("click", () => switchAuthMode("login"));
         elements.showRegister.addEventListener("click", () => switchAuthMode("register"));
+        elements.currentUsername.addEventListener("click", showAccount);
         elements.logout.addEventListener("click", logout);
+        elements.backToDashboardFromAccount.addEventListener("click", showDashboard);
+        elements.showChangePassword.addEventListener("click", showChangePasswordForm);
+        elements.cancelChangePassword.addEventListener("click", hideChangePasswordForm);
+        elements.changePasswordForm.addEventListener("submit", submitPasswordChange);
+        elements.showDeleteAccount.addEventListener("click", showDeleteAccountConfirmation);
+        elements.cancelDeleteAccount.addEventListener("click", hideDeleteAccountConfirmation);
+        elements.deleteAccountForm.addEventListener("submit", submitAccountDeletion);
         elements.expansionSelect.addEventListener("change", handleExpansionChange);
         elements.cardLookupToggle.addEventListener("click", toggleCardLookupPanel);
         elements.cardLookupButton.addEventListener("click", identifyCard);
@@ -338,6 +364,7 @@
             if (event.key === "Escape") {
                 closeExportMenu();
                 hideExportConfirmation();
+                hideDeleteAccountConfirmation();
             }
         });
         window.addEventListener("popstate", () => {
@@ -491,6 +518,8 @@
 
     function showAuth(message, type = "error") {
         authState.user = null;
+        hideChangePasswordForm();
+        hideDeleteAccountConfirmation();
         elements.authenticatedNavigation.hidden = true;
         elements.userMenu.hidden = true;
         setActiveView("auth");
@@ -1234,6 +1263,10 @@
             showWizard(false);
             return;
         }
+        if (route.view === "account") {
+            await showAccount(false);
+            return;
+        }
         await showDashboard(false);
     }
 
@@ -1248,6 +1281,9 @@
         }
         if (hash === ROUTES.wizard) {
             return { view: "wizard" };
+        }
+        if (hash === ROUTES.account) {
+            return { view: "account" };
         }
         return { view: "dashboard" };
     }
@@ -1287,9 +1323,22 @@
         }
     }
 
+    async function showAccount(updateHash = true) {
+        if (authState.user === null) {
+            showAuth();
+            return;
+        }
+        if (updateHash) {
+            updateRoute(ROUTES.account);
+        }
+        setActiveView("account");
+        await loadAccount();
+    }
+
     function setActiveView(view) {
         elements.authView.hidden = view !== "auth";
         elements.dashboardView.hidden = view !== "dashboard";
+        elements.accountView.hidden = view !== "account";
         elements.wizardView.hidden = view !== "wizard";
         elements.detailView.hidden = view !== "detail";
         document.querySelectorAll(".nav-link[data-view-link]").forEach((link) => {
@@ -1300,6 +1349,129 @@
             dashboardState.chart = null;
         }
         window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    async function loadAccount() {
+        clearAccountStatus();
+        hideChangePasswordForm();
+        try {
+            const account = await requestJson("/api/account");
+            elements.accountUsername.textContent = account.username;
+            elements.accountCreatedAt.textContent = formatDateTime(account.createdAt);
+            document.querySelector("#accountTitle").focus({ preventScroll: true });
+        }
+        catch (error) {
+            setAccountStatus(errorMessage(error, "Impossibile caricare il profilo."), "error");
+        }
+    }
+
+    function showChangePasswordForm() {
+        clearAccountStatus();
+        elements.changePasswordForm.hidden = false;
+        elements.showChangePassword.disabled = true;
+        elements.currentPasswordInput.focus();
+    }
+
+    function hideChangePasswordForm() {
+        elements.changePasswordForm.reset();
+        elements.changePasswordForm.hidden = true;
+        elements.showChangePassword.disabled = false;
+    }
+
+    async function submitPasswordChange(event) {
+        event.preventDefault();
+        if (!elements.changePasswordForm.reportValidity()) {
+            return;
+        }
+        if (elements.newPasswordInput.value !== elements.confirmNewPasswordInput.value) {
+            setAccountStatus("La nuova password e la conferma non coincidono.", "error");
+            return;
+        }
+        setChangePasswordFormDisabled(true);
+        clearAccountStatus();
+        showLoadingOverlay("Modifica password", "Aggiornamento della password in corso.");
+        try {
+            await requestJson("/api/account/password", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    currentPassword: elements.currentPasswordInput.value,
+                    newPassword: elements.newPasswordInput.value
+                })
+            });
+            hideChangePasswordForm();
+            setAccountStatus("Password modificata correttamente.", "info");
+        }
+        catch (error) {
+            setAccountStatus(errorMessage(error, "Non è stato possibile modificare la password."), "error");
+        }
+        finally {
+            setChangePasswordFormDisabled(false);
+            hideLoadingOverlay();
+        }
+    }
+
+    function setChangePasswordFormDisabled(disabled) {
+        [...elements.changePasswordForm.elements].forEach((element) => {
+            element.disabled = disabled;
+        });
+    }
+
+    function showDeleteAccountConfirmation() {
+        clearAccountStatus();
+        clearPanelStatus(elements.deleteAccountStatus);
+        elements.deleteAccountForm.reset();
+        elements.deleteAccountOverlay.hidden = false;
+        elements.deleteAccountPassword.focus();
+    }
+
+    function hideDeleteAccountConfirmation() {
+        elements.deleteAccountOverlay.hidden = true;
+        elements.deleteAccountForm.reset();
+        clearPanelStatus(elements.deleteAccountStatus);
+    }
+
+    async function submitAccountDeletion(event) {
+        event.preventDefault();
+        if (!elements.deleteAccountForm.reportValidity()) {
+            return;
+        }
+        setDeleteAccountFormDisabled(true);
+        clearPanelStatus(elements.deleteAccountStatus);
+        showLoadingOverlay("Eliminazione account", "Cancellazione del profilo e dei monitoraggi in corso.");
+        try {
+            await requestJson("/api/account", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ currentPassword: elements.deleteAccountPassword.value })
+            });
+            authState.user = null;
+            authState.csrfToken = null;
+            dashboardState.items = [];
+            telegramState.linked = false;
+            stopTelegramLinkPolling();
+            stopImageBackfillPolling();
+            hideDeleteAccountConfirmation();
+            await refreshCsrfToken();
+            updateRoute(ROUTES.dashboard);
+            showAuth("Account eliminato correttamente.", "info");
+        }
+        catch (error) {
+            setPanelStatus(
+                elements.deleteAccountStatus,
+                errorMessage(error, "Non è stato possibile eliminare l'account."),
+                "error");
+        }
+        finally {
+            setDeleteAccountFormDisabled(false);
+            hideLoadingOverlay();
+        }
+    }
+
+    function setDeleteAccountFormDisabled(disabled) {
+        [...elements.deleteAccountForm.elements].forEach((element) => {
+            element.disabled = disabled;
+        });
     }
 
     async function loadDashboard() {
@@ -2351,6 +2523,14 @@
 
     function clearDashboardStatus() {
         clearPanelStatus(elements.dashboardStatus);
+    }
+
+    function setAccountStatus(message, type) {
+        setPanelStatus(elements.accountStatus, message, type);
+    }
+
+    function clearAccountStatus() {
+        clearPanelStatus(elements.accountStatus);
     }
 
     function setDetailStatus(message, type) {
