@@ -113,21 +113,6 @@ button {
     margin-top: 0;
 }
 
-.user-name-button {
-    color: var(--ink);
-    padding: 9px 13px;
-    border-radius: 9px;
-    background: rgba(23, 35, 31, 0.06);
-    font-size: 0.81rem;
-    font-weight: 760;
-    text-decoration: none;
-}
-
-.user-name-button:hover {
-    color: var(--ink);
-    background: rgba(23, 35, 31, 0.09);
-}
-
 .nav-link {
     padding: 9px 13px;
     border-radius: 9px;
@@ -474,6 +459,23 @@ select:disabled {
     font-weight: 780;
     text-decoration: underline;
     text-underline-offset: 3px;
+}
+
+.user-menu .user-name-button {
+    margin-top: 0;
+    padding: 9px 13px;
+    border-radius: 9px;
+    color: var(--ink);
+    background: rgba(23, 35, 31, 0.06);
+    font-size: 0.81rem;
+    font-weight: 760;
+    text-decoration: none;
+}
+
+.user-menu .user-name-button:hover,
+.user-menu .user-name-button:focus-visible {
+    color: var(--ink);
+    background: rgba(23, 35, 31, 0.09);
 }
 
 .choice-grid {
