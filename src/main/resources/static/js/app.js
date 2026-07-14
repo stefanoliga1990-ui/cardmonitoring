@@ -1782,7 +1782,9 @@
             hideAddCollectionPanel();
             await loadCollections();
             setCollectionsStatus(
-                "Collezione aggiunta. Le immagini possono continuare a sincronizzarsi in background.",
+                detail.alreadyPresent
+                    ? "Collezione già presente."
+                    : "Collezione aggiunta. Le immagini possono continuare a sincronizzarsi in background.",
                 "info"
             );
         }

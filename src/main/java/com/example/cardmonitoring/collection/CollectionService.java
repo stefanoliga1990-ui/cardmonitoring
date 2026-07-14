@@ -81,8 +81,10 @@ public class CollectionService {
 		}
 		AppUser owner = requireUser(ownerId);
 		CollectionSet collectionSet = ensureCollectionSet(request.expansionId());
-		UserCollection userCollection = userCollectionRepository
-				.findByOwnerIdAndCollectionSetId(ownerId, collectionSet.getId())
+		Optional<UserCollection> existingUserCollection = userCollectionRepository
+				.findByOwnerIdAndCollectionSetId(ownerId, collectionSet.getId());
+		boolean alreadyPresent = existingUserCollection.isPresent();
+		UserCollection userCollection = existingUserCollection
 				.map(existing -> {
 					existing.reactivate();
 					return existing;
@@ -93,7 +95,7 @@ public class CollectionService {
 		if (collectionSet.getImageSyncStatus() != CollectionImageSyncStatus.COMPLETED) {
 			registerImageSyncAfterCommit(collectionSetId);
 		}
-		return toDetail(userCollection);
+		return toDetail(userCollection, alreadyPresent);
 	}
 
 	@Transactional(readOnly = true)
@@ -173,6 +175,10 @@ public class CollectionService {
 	}
 
 	private CollectionDetailResponse toDetail(UserCollection userCollection) {
+		return toDetail(userCollection, false);
+	}
+
+	private CollectionDetailResponse toDetail(UserCollection userCollection, boolean alreadyPresent) {
 		CollectionSet collectionSet = userCollection.getCollectionSet();
 		List<CollectionCard> cards = collectionCardRepository
 				.findByCollectionSetIdOrderBySortOrderAsc(collectionSet.getId());
@@ -207,6 +213,7 @@ public class CollectionService {
 				collectionSet.getCardCount(),
 				collectionSet.getImageSyncStatus(),
 				collectionSet.getLastError(),
+				alreadyPresent,
 				cardResponses);
 	}
 

@@ -10,5 +10,6 @@ public record CollectionDetailResponse(
 		int cardCount,
 		CollectionImageSyncStatus imageSyncStatus,
 		String lastError,
+		boolean alreadyPresent,
 		List<CollectionCardResponse> cards) {
 }
