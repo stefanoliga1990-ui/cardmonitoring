@@ -226,6 +226,7 @@
         createFirstCollection: document.querySelector("#createFirstCollectionButton"),
         collectionsToolbar: document.querySelector("#collectionsToolbar"),
         collectionSelect: document.querySelector("#collectionSelect"),
+        collectionCompletion: document.querySelector("#collectionCompletion"),
         collectionSyncStatus: document.querySelector("#collectionSyncStatus"),
         collectionsLoading: document.querySelector("#collectionsLoading"),
         collectionsEmpty: document.querySelector("#collectionsEmpty"),
@@ -1454,7 +1455,7 @@
         elements.collectionSelect.replaceChildren();
         collectionsState.items.forEach((collection) => {
             elements.collectionSelect.append(new Option(
-                `${collection.name} Â· ${collection.code} (${collection.cardCount})`,
+                `${collection.name} - ${collection.code} (${collection.cardCount})`,
                 String(collection.id)
             ));
         });
@@ -1470,6 +1471,7 @@
         }
         elements.collectionsToolbar.hidden = false;
         elements.collectionsEmpty.hidden = true;
+        renderCollectionCompletion(detail);
         renderCollectionSyncStatus(detail);
         elements.collectionCardGrid.replaceChildren();
         detail.cards.forEach((card) => {
@@ -1489,8 +1491,32 @@
         elements.collectionSyncStatus.textContent = statusLabels[detail.imageSyncStatus] || "";
         elements.collectionSyncStatus.classList.toggle("is-warning", detail.imageSyncStatus === "PARTIAL_FAILED");
         if (detail.lastError) {
-            elements.collectionSyncStatus.textContent += ` Â· ${detail.lastError}`;
+            elements.collectionSyncStatus.textContent += ` - ${detail.lastError}`;
         }
+    }
+
+    function renderCollectionCompletion(detail) {
+        const totalCards = Number(detail.cardCount || detail.cards.length || 0);
+        const ownedCards = detail.cards.filter((card) => card.owned).length;
+        const percentage = totalCards > 0 ? Math.round((ownedCards / totalCards) * 100) : 0;
+        elements.collectionCompletion.replaceChildren();
+
+        const header = createElement("div", "collection-completion-header");
+        header.append(
+            createElement("span", "", "Completamento"),
+            createElement("strong", "", `${percentage}%`)
+        );
+
+        const bar = createElement("div", "collection-completion-bar");
+        const fill = createElement("span");
+        fill.style.width = `${percentage}%`;
+        bar.append(fill);
+
+        elements.collectionCompletion.append(
+            header,
+            bar,
+            createElement("small", "", `${ownedCards} su ${totalCards} carte segnate come possedute`)
+        );
     }
 
     function scheduleCollectionPolling(detail) {
@@ -1543,7 +1569,7 @@
             createElement("span", "", card.cardVersion || "Versione non disponibile")
         );
         if (card.collectorNumber) {
-            details.append(createElement("small", "", `NÂ° ${card.collectorNumber}`));
+            details.append(createElement("small", "", `N. ${card.collectorNumber}`));
         }
         details.append(badges);
 
@@ -1606,13 +1632,13 @@
         }
         const originalLabel = button.textContent;
         button.disabled = true;
-        button.textContent = "Aperturaâ€¦";
+        button.textContent = "Apertura...";
         try {
             await prefillWizardFromCollection(expansionId, blueprintId);
             setStatus("Carta selezionata dalla collezione. Ora scegli lingua, condizione e variante.", "info");
         }
         catch (error) {
-            setCollectionsStatus(errorMessage(error, "Non Ã¨ stato possibile aprire il calcolo prezzo."), "error");
+            setCollectionsStatus(errorMessage(error, "Non e stato possibile aprire il calcolo prezzo."), "error");
         }
         finally {
             button.disabled = false;
@@ -1630,7 +1656,7 @@
         if (selectedExpansion() === undefined || selectedBlueprint() === undefined) {
             state.blueprintId = null;
             updateActions();
-            throw new Error("La carta non Ã¨ piÃ¹ disponibile nel catalogo CardTrader.");
+            throw new Error("La carta non e piu disponibile nel catalogo CardTrader.");
         }
         state.step = 3;
         clearStatus();
@@ -1654,7 +1680,7 @@
             populateCollectionExpansionSelect();
             return;
         }
-        setSelectState(elements.collectionExpansionSelect, "Caricamento dei setâ€¦", true);
+        setSelectState(elements.collectionExpansionSelect, "Caricamento dei set...", true);
         try {
             collectionsState.expansions = await requestJson("/api/catalog/expansions");
             collectionsState.expansionsLoaded = true;
@@ -1669,7 +1695,7 @@
     function populateCollectionExpansionSelect() {
         elements.collectionExpansionSelect.replaceChildren(new Option("Seleziona un set", ""));
         collectionsState.expansions.forEach((expansion) => {
-            elements.collectionExpansionSelect.append(new Option(`${expansion.name} Â· ${expansion.code}`, expansion.id));
+            elements.collectionExpansionSelect.append(new Option(`${expansion.name} - ${expansion.code}`, expansion.id));
         });
         elements.collectionExpansionSelect.disabled = false;
     }

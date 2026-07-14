@@ -1911,6 +1911,61 @@ body.is-loading-overlay-visible {
     gap: 10px;
 }
 
+.collection-toolbar-meta {
+    display: grid;
+    width: min(430px, 100%);
+    gap: 10px;
+}
+
+.collection-completion {
+    display: grid;
+    gap: 6px;
+}
+
+.collection-completion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.collection-completion-header span {
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.collection-completion-header strong {
+    color: var(--ink);
+    font-size: 0.92rem;
+    font-weight: 850;
+}
+
+.collection-completion-bar {
+    height: 10px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(23, 35, 31, 0.08);
+}
+
+.collection-completion-bar span {
+    display: block;
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--success), #5aa27e);
+    transition: width 180ms ease;
+}
+
+.collection-completion small {
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 650;
+    text-align: right;
+}
+
 .collection-sync-status {
     max-width: 430px;
     color: var(--muted);
@@ -2530,6 +2585,10 @@ body.is-loading-overlay-visible {
     }
 
     .collection-sync-status {
+        text-align: left;
+    }
+
+    .collection-completion small {
         text-align: left;
     }
 
