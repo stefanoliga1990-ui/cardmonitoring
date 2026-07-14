@@ -1974,6 +1974,35 @@ body.is-loading-overlay-visible {
     text-align: right;
 }
 
+.collection-sync-status[hidden] {
+    display: none;
+}
+
+.collection-sync-status.is-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 10px 14px;
+    border: 1px solid rgba(217, 95, 50, 0.16);
+    border-radius: 14px;
+    color: var(--ink);
+    background: var(--accent-soft);
+    font-size: 0.94rem;
+    text-align: center;
+}
+
+.collection-sync-spinner {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 auto;
+    border: 3px solid rgba(217, 95, 50, 0.18);
+    border-top-color: var(--accent);
+    border-radius: 999px;
+    animation: spin 850ms linear infinite;
+}
+
 .collection-sync-status.is-warning {
     color: #8b4931;
 }

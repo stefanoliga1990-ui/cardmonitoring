@@ -1482,17 +1482,28 @@
     }
 
     function renderCollectionSyncStatus(detail) {
-        const statusLabels = {
-            NOT_STARTED: "Immagini non ancora sincronizzate",
-            RUNNING: "Sincronizzazione immagini in corso",
-            COMPLETED: "Immagini sincronizzate",
-            PARTIAL_FAILED: "Sincronizzazione immagini completata parzialmente"
-        };
-        elements.collectionSyncStatus.textContent = statusLabels[detail.imageSyncStatus] || "";
-        elements.collectionSyncStatus.classList.toggle("is-warning", detail.imageSyncStatus === "PARTIAL_FAILED");
-        if (detail.lastError) {
-            elements.collectionSyncStatus.textContent += ` - ${detail.lastError}`;
+        elements.collectionSyncStatus.replaceChildren();
+        elements.collectionSyncStatus.classList.remove("is-loading", "is-warning");
+        elements.collectionSyncStatus.hidden = false;
+
+        if (detail.imageSyncStatus === "RUNNING" || detail.imageSyncStatus === "NOT_STARTED") {
+            elements.collectionSyncStatus.classList.add("is-loading");
+            elements.collectionSyncStatus.append(
+                createElement("span", "collection-sync-spinner"),
+                createElement("strong", "", "Sincronizzazione immagini in corso")
+            );
+            return;
         }
+
+        if (detail.imageSyncStatus === "PARTIAL_FAILED") {
+            elements.collectionSyncStatus.classList.add("is-warning");
+            elements.collectionSyncStatus.textContent = detail.lastError
+                ? `Sincronizzazione immagini completata parzialmente - ${detail.lastError}`
+                : "Sincronizzazione immagini completata parzialmente";
+            return;
+        }
+
+        elements.collectionSyncStatus.hidden = true;
     }
 
     function renderCollectionCompletion(detail) {
