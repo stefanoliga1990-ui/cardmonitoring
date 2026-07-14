@@ -126,6 +126,7 @@
         expansionsLoaded: false,
         loading: false,
         creating: false,
+        deleting: false,
         pollTimer: null
     };
 
@@ -226,6 +227,10 @@
         createFirstCollection: document.querySelector("#createFirstCollectionButton"),
         collectionsToolbar: document.querySelector("#collectionsToolbar"),
         collectionSelect: document.querySelector("#collectionSelect"),
+        deleteCollection: document.querySelector("#deleteCollectionButton"),
+        deleteCollectionOverlay: document.querySelector("#deleteCollectionOverlay"),
+        confirmDeleteCollection: document.querySelector("#confirmDeleteCollectionButton"),
+        cancelDeleteCollection: document.querySelector("#cancelDeleteCollectionButton"),
         collectionCompletion: document.querySelector("#collectionCompletion"),
         collectionSyncStatus: document.querySelector("#collectionSyncStatus"),
         collectionsLoading: document.querySelector("#collectionsLoading"),
@@ -371,6 +376,9 @@
         elements.createFirstCollection.addEventListener("click", showAddCollectionPanel);
         elements.cancelAddCollection.addEventListener("click", hideAddCollectionPanel);
         elements.createCollection.addEventListener("click", createCollection);
+        elements.deleteCollection.addEventListener("click", showDeleteCollectionConfirmation);
+        elements.confirmDeleteCollection.addEventListener("click", deleteSelectedCollection);
+        elements.cancelDeleteCollection.addEventListener("click", hideDeleteCollectionConfirmation);
         elements.collectionSelect.addEventListener("change", () => {
             collectionsState.selectedId = numberOrNull(elements.collectionSelect.value);
             if (collectionsState.selectedId !== null) {
@@ -402,6 +410,7 @@
             if (event.key === "Escape") {
                 closeExportMenu();
                 hideExportConfirmation();
+                hideDeleteCollectionConfirmation();
                 hideDeleteAccountConfirmation();
             }
         });
@@ -1460,6 +1469,7 @@
             ));
         });
         elements.collectionsToolbar.hidden = collectionsState.items.length === 0;
+        elements.deleteCollection.disabled = collectionsState.items.length === 0;
     }
 
     function renderCollectionDetail() {
@@ -1528,6 +1538,47 @@
             bar,
             createElement("small", "", `${ownedCards} su ${totalCards} carte segnate come possedute`)
         );
+    }
+
+    function showDeleteCollectionConfirmation() {
+        if (collectionsState.selectedId === null || collectionsState.deleting) {
+            return;
+        }
+        elements.deleteCollectionOverlay.hidden = false;
+        elements.confirmDeleteCollection.focus({ preventScroll: true });
+    }
+
+    function hideDeleteCollectionConfirmation() {
+        elements.deleteCollectionOverlay.hidden = true;
+    }
+
+    async function deleteSelectedCollection() {
+        if (collectionsState.selectedId === null || collectionsState.deleting) {
+            return;
+        }
+        const collectionId = collectionsState.selectedId;
+        collectionsState.deleting = true;
+        elements.confirmDeleteCollection.disabled = true;
+        elements.cancelDeleteCollection.disabled = true;
+        hideDeleteCollectionConfirmation();
+        stopCollectionPolling();
+        showLoadingOverlay("Eliminazione collezione", "Rimozione della collezione dal tuo profilo.");
+        try {
+            await requestJson(`/api/collections/${collectionId}`, { method: "DELETE" });
+            collectionsState.selectedId = null;
+            collectionsState.detail = null;
+            await loadCollections();
+            setCollectionsStatus("Collezione eliminata.", "info");
+        }
+        catch (error) {
+            setCollectionsStatus(errorMessage(error, "Eliminazione della collezione non riuscita."), "error");
+        }
+        finally {
+            collectionsState.deleting = false;
+            elements.confirmDeleteCollection.disabled = false;
+            elements.cancelDeleteCollection.disabled = false;
+            hideLoadingOverlay();
+        }
     }
 
     function scheduleCollectionPolling(detail) {

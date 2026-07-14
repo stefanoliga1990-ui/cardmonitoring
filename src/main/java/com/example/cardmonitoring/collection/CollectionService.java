@@ -102,6 +102,12 @@ public class CollectionService {
 	}
 
 	@Transactional
+	public void delete(long ownerId, long collectionId) {
+		UserCollection userCollection = requireUserCollection(ownerId, collectionId);
+		userCollectionRepository.delete(userCollection);
+	}
+
+	@Transactional
 	public CollectionDetailResponse updateCardOwnership(
 			long ownerId,
 			long collectionId,

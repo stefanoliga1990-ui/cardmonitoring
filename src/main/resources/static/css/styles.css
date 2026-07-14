@@ -1911,6 +1911,11 @@ body.is-loading-overlay-visible {
     gap: 10px;
 }
 
+.collection-delete-button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
 .collection-toolbar-meta {
     display: grid;
     width: min(430px, 100%);
@@ -2596,6 +2601,7 @@ body.is-loading-overlay-visible {
     .account-actions .button,
     .account-form-actions .button,
     .collection-add-actions .button,
+    .collection-delete-button,
     .confirm-actions .button {
         width: 100%;
     }

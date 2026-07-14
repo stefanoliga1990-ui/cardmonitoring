@@ -231,6 +231,9 @@
                         <select id="collectionSelect"></select>
                     </div>
                 </div>
+                <button id="deleteCollectionButton" class="button button--danger collection-delete-button" type="button">
+                    Elimina collezione
+                </button>
                 <div class="collection-toolbar-meta">
                     <div id="collectionCompletion" class="collection-completion" aria-label="Completamento collezione"></div>
                     <div id="collectionSyncStatus" class="collection-sync-status" role="status" aria-live="polite"></div>
@@ -689,6 +692,18 @@
             <div class="confirm-actions">
                 <button id="exportCancelButton" class="button button--secondary" type="button">Annulla</button>
                 <button id="exportConfirmButton" class="button button--primary" type="button">S&igrave;</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="deleteCollectionOverlay" class="confirm-overlay" role="dialog" aria-modal="true"
+         aria-labelledby="deleteCollectionTitle" hidden>
+        <div class="confirm-dialog confirm-dialog--danger">
+            <strong id="deleteCollectionTitle">Vuoi eliminare questa collezione?</strong>
+            <p>I monitoraggi attivi sulle carte di questa collezione resteranno disponibili in dashboard.</p>
+            <div class="confirm-actions">
+                <button id="cancelDeleteCollectionButton" class="button button--secondary" type="button">Annulla</button>
+                <button id="confirmDeleteCollectionButton" class="button button--danger" type="button">S&igrave;</button>
             </div>
         </div>
     </div>
