@@ -24,4 +24,9 @@ public class ImageBackfillController {
 	public ImageBackfillStatusResponse start() {
 		return imageBackfillService.start();
 	}
+
+	@PostMapping("/stop")
+	public ImageBackfillStatusResponse stop() {
+		return imageBackfillService.stop();
+	}
 }

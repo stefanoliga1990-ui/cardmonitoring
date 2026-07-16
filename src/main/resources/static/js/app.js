@@ -257,14 +257,18 @@
         imageBackfillStatus: document.querySelector("#imageBackfillStatus"),
         imageBackfillProgressBar: document.querySelector("#imageBackfillProgressBar"),
         imageBackfillRunState: document.querySelector("#imageBackfillRunState"),
-        imageBackfillPokemonCards: document.querySelector("#imageBackfillPokemonCards"),
+        imageBackfillExpansions: document.querySelector("#imageBackfillExpansions"),
         imageBackfillBlueprints: document.querySelector("#imageBackfillBlueprints"),
         imageBackfillSavedImages: document.querySelector("#imageBackfillSavedImages"),
-        imageBackfillUpdatedImages: document.querySelector("#imageBackfillUpdatedImages"),
         imageBackfillAlreadyPresentImages: document.querySelector("#imageBackfillAlreadyPresentImages"),
+        imageBackfillCurrentSet: document.querySelector("#imageBackfillCurrentSet"),
+        imageBackfillCurrentBlueprints: document.querySelector("#imageBackfillCurrentBlueprints"),
+        imageBackfillCurrentImages: document.querySelector("#imageBackfillCurrentImages"),
         imageBackfillSkippedImages: document.querySelector("#imageBackfillSkippedImages"),
         imageBackfillErrors: document.querySelector("#imageBackfillErrors"),
         imageBackfillStart: document.querySelector("#imageBackfillStartButton"),
+        imageBackfillStop: document.querySelector("#imageBackfillStopButton"),
+        imageBackfillExpansionResults: document.querySelector("#imageBackfillExpansionResults"),
         detailStatus: document.querySelector("#detailStatus"),
         dashboardLoading: document.querySelector("#dashboardLoading"),
         dashboardEmpty: document.querySelector("#dashboardEmpty"),
@@ -396,6 +400,7 @@
         elements.telegramUnlink.addEventListener("click", unlinkTelegram);
         elements.imageBackfillToggle.addEventListener("click", toggleImageBackfillPanel);
         elements.imageBackfillStart.addEventListener("click", startImageBackfill);
+        elements.imageBackfillStop.addEventListener("click", stopImageBackfill);
         elements.backToDashboard.addEventListener("click", showDashboard);
         elements.detailRefresh.addEventListener("click", () => refreshMonitoring(dashboardState.selectedMonitoringId, true));
         elements.detailPurchasePrice.addEventListener("click", () => editPurchasePrice(dashboardState.selectedMonitoringId, true));
@@ -2294,18 +2299,42 @@
         }
         imageBackfillState.loading = true;
         elements.imageBackfillStart.disabled = true;
+        elements.imageBackfillStop.disabled = true;
         setImageBackfillPanelExpanded(true);
         setImageBackfillStatus("Avvio della raccolta immagini in corso…", "info");
         try {
             const status = await requestJson("/api/tools/image-backfill/start", { method: "POST" });
             renderImageBackfillStatus(status);
-            if (status.state === "RUNNING") {
+            if (status.state === "RUNNING" || status.state === "STOPPING") {
                 startImageBackfillPolling();
             }
         }
         catch (error) {
             setImageBackfillStatus(errorMessage(error, "Impossibile avviare la raccolta immagini."), "error");
             elements.imageBackfillStart.disabled = false;
+        }
+        finally {
+            imageBackfillState.loading = false;
+        }
+    }
+
+    async function stopImageBackfill() {
+        if (imageBackfillState.loading) {
+            return;
+        }
+        imageBackfillState.loading = true;
+        elements.imageBackfillStop.disabled = true;
+        setImageBackfillStatus("Stop richiesto. Completo la carta corrente e poi mi fermo…", "info");
+        try {
+            const status = await requestJson("/api/tools/image-backfill/stop", { method: "POST" });
+            renderImageBackfillStatus(status);
+            if (status.state === "RUNNING" || status.state === "STOPPING") {
+                startImageBackfillPolling();
+            }
+        }
+        catch (error) {
+            setImageBackfillStatus(errorMessage(error, "Impossibile fermare la raccolta immagini."), "error");
+            elements.imageBackfillStop.disabled = false;
         }
         finally {
             imageBackfillState.loading = false;
@@ -2328,23 +2357,44 @@
         const skipped = Number(status.skippedWithoutCollectorNumber || 0)
             + Number(status.skippedWithoutPokemonCandidate || 0)
             + Number(status.skippedWithoutReliableMatch || 0);
-        const progress = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
+        const processedExpansions = Number(status.processedExpansions || 0);
+        const totalExpansions = Number(status.totalExpansions || 0);
+        const currentProcessed = Number(status.currentExpansionProcessedBlueprints || 0);
+        const currentTotal = Number(status.currentExpansionTotalBlueprints || 0);
+        const currentExisting = Number(status.currentExpansionImagesAlreadyPresent || 0);
+        const currentSaved = Number(status.currentExpansionSavedImages || 0);
+        const progress = totalExpansions > 0
+            ? Math.min(100, Math.round((processedExpansions / totalExpansions) * 100))
+            : total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
 
         elements.imageBackfillProgressBar.style.width = `${progress}%`;
         elements.imageBackfillRunState.textContent = imageBackfillStateLabel(status.state);
-        elements.imageBackfillPokemonCards.textContent = formatInteger(status.totalPokemonCards || 0);
+        elements.imageBackfillExpansions.textContent = `${formatInteger(processedExpansions)} / ${formatInteger(totalExpansions)}`;
         elements.imageBackfillBlueprints.textContent = `${formatInteger(processed)} / ${formatInteger(total)}`;
         elements.imageBackfillSavedImages.textContent = formatInteger(status.savedImages || 0);
-        elements.imageBackfillUpdatedImages.textContent = formatInteger(status.updatedImages || 0);
         elements.imageBackfillAlreadyPresentImages.textContent = formatInteger(status.alreadyPresentImages || 0);
+        elements.imageBackfillCurrentSet.textContent = status.currentExpansion || "—";
+        elements.imageBackfillCurrentBlueprints.textContent = `${formatInteger(currentProcessed)} / ${formatInteger(currentTotal)}`;
+        elements.imageBackfillCurrentImages.textContent = formatInteger(currentExisting + currentSaved);
         elements.imageBackfillSkippedImages.textContent = formatInteger(skipped);
         elements.imageBackfillErrors.textContent = formatInteger(status.errors || 0);
-        elements.imageBackfillStart.disabled = status.state === "RUNNING";
+        renderImageBackfillExpansionResults(status.expansionResults || []);
+
+        const running = status.state === "RUNNING";
+        const stopping = status.state === "STOPPING";
+        elements.imageBackfillStart.disabled = running || stopping;
+        elements.imageBackfillStop.disabled = !running || stopping;
 
         const current = [status.currentExpansion, status.currentCard].filter(Boolean).join(" · ");
-        if (status.state === "RUNNING") {
+        if (running) {
             setImageBackfillCollapsedStatus(`In corso · ${progress}%`, "running");
             setImageBackfillStatus(current ? `Sto elaborando: ${current}` : "Raccolta immagini in corso…", "info");
+            startImageBackfillPolling();
+            return;
+        }
+        if (stopping) {
+            setImageBackfillCollapsedStatus("Stop in corso", "running");
+            setImageBackfillStatus("Stop richiesto. Il job si fermerà appena possibile.", "info");
             startImageBackfillPolling();
             return;
         }
@@ -2352,6 +2402,10 @@
         if (status.state === "COMPLETED") {
             setImageBackfillCollapsedStatus("Completato", "linked");
             setImageBackfillStatus("Raccolta immagini completata.", "info");
+        }
+        else if (status.state === "STOPPED") {
+            setImageBackfillCollapsedStatus("Fermato", "info");
+            setImageBackfillStatus("Raccolta immagini fermata.", "info");
         }
         else if (status.state === "FAILED") {
             setImageBackfillCollapsedStatus("Fallito", "error");
@@ -2361,6 +2415,35 @@
             setImageBackfillCollapsedStatus("Pronto", "info");
             setImageBackfillStatus("Puoi avviare la raccolta degli URL immagini quando vuoi.", "info");
         }
+    }
+
+    function renderImageBackfillExpansionResults(results) {
+        elements.imageBackfillExpansionResults.replaceChildren();
+        if (!results.length) {
+            return;
+        }
+        const title = createElement("p", "tool-result-title", "Set completati");
+        const list = createElement("div", "tool-result-items");
+        results.slice(-12).reverse().forEach((result) => {
+            const row = createElement("div", "tool-result-item");
+            const name = createElement(
+                "strong",
+                "",
+                `${result.expansionName || "Set"}${result.expansionCode ? ` · ${result.expansionCode}` : ""}`
+            );
+            const details = createElement(
+                "span",
+                "",
+                `${formatInteger(result.imagesInDbAfter || 0)} URL nel DB · `
+                + `${formatInteger(result.imagesSaved || 0)} nuove · `
+                + `${formatInteger(result.imagesAlreadyPresent || 0)} già presenti · `
+                + `${formatInteger(result.notFound || 0)} non trovate · `
+                + `${formatInteger(result.errors || 0)} errori`
+            );
+            row.append(name, details);
+            list.append(row);
+        });
+        elements.imageBackfillExpansionResults.append(title, list);
     }
 
     function startImageBackfillPolling() {
@@ -2419,6 +2502,12 @@
     function imageBackfillStateLabel(state) {
         if (state === "RUNNING") {
             return "In corso";
+        }
+        if (state === "STOPPING") {
+            return "Stop in corso";
+        }
+        if (state === "STOPPED") {
+            return "Fermato";
         }
         if (state === "COMPLETED") {
             return "Completato";

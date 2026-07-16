@@ -8,8 +8,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class ImageBackfillProperties {
 
 	private boolean enabled;
-	private Duration delay = Duration.ofMillis(300);
-	private int pokemonPageSize = 250;
+	private Duration delay = Duration.ofSeconds(5);
+	private Duration retryDelay = Duration.ofSeconds(1);
+	private int maxAttempts = 3;
 
 	public boolean isEnabled() {
 		return enabled;
@@ -30,11 +31,22 @@ public class ImageBackfillProperties {
 		this.delay = delay;
 	}
 
-	public int getPokemonPageSize() {
-		return pokemonPageSize;
+	public Duration getRetryDelay() {
+		return retryDelay;
 	}
 
-	public void setPokemonPageSize(int pokemonPageSize) {
-		this.pokemonPageSize = Math.max(1, Math.min(pokemonPageSize, 250));
+	public void setRetryDelay(Duration retryDelay) {
+		if (retryDelay == null || retryDelay.isNegative()) {
+			throw new IllegalArgumentException("Image backfill retry delay must be zero or positive");
+		}
+		this.retryDelay = retryDelay;
+	}
+
+	public int getMaxAttempts() {
+		return maxAttempts;
+	}
+
+	public void setMaxAttempts(int maxAttempts) {
+		this.maxAttempts = Math.max(1, Math.min(maxAttempts, 5));
 	}
 }

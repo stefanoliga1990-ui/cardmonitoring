@@ -158,17 +158,23 @@
                         </div>
                         <dl class="tool-stats">
                             <div><dt>Stato</dt><dd id="imageBackfillRunState">—</dd></div>
-                            <div><dt>Carte Pokémon indicizzate</dt><dd id="imageBackfillPokemonCards">0</dd></div>
+                            <div><dt>Set processati</dt><dd id="imageBackfillExpansions">0 / 0</dd></div>
                             <div><dt>Blueprint processati</dt><dd id="imageBackfillBlueprints">0 / 0</dd></div>
                             <div><dt>Immagini salvate</dt><dd id="imageBackfillSavedImages">0</dd></div>
-                            <div><dt>Aggiornate</dt><dd id="imageBackfillUpdatedImages">0</dd></div>
                             <div><dt>Già presenti</dt><dd id="imageBackfillAlreadyPresentImages">0</dd></div>
+                            <div><dt>Set corrente</dt><dd id="imageBackfillCurrentSet">—</dd></div>
+                            <div><dt>Carte set corrente</dt><dd id="imageBackfillCurrentBlueprints">0 / 0</dd></div>
+                            <div><dt>URL nel DB per il set</dt><dd id="imageBackfillCurrentImages">0</dd></div>
                             <div><dt>Saltate</dt><dd id="imageBackfillSkippedImages">0</dd></div>
                             <div><dt>Errori</dt><dd id="imageBackfillErrors">0</dd></div>
                         </dl>
+                        <div id="imageBackfillExpansionResults" class="tool-result-list" aria-live="polite"></div>
                         <div class="tool-actions">
                             <button id="imageBackfillStartButton" class="button button--primary" type="button">
                                 Avvia raccolta immagini
+                            </button>
+                            <button id="imageBackfillStopButton" class="button button--secondary" type="button" disabled>
+                                Stop
                             </button>
                         </div>
                     </div>
