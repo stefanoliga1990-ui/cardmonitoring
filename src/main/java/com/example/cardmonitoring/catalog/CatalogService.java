@@ -74,7 +74,10 @@ public class CatalogService {
 		List<CatalogBlueprint> blueprints = cardTraderClient.getBlueprints(expansionId).stream()
 				.filter(blueprint -> isPokemonSinglesBlueprint(blueprint, expansionId))
 				.map(blueprint -> new CatalogBlueprint(
-						blueprint.id(), blueprint.name(), blueprint.version(), blueprint.expansionId()))
+						blueprint.id(),
+						CardNameNormalizer.withoutTrailingNumericLevel(blueprint.name()),
+						blueprint.version(),
+						blueprint.expansionId()))
 				.sorted(BLUEPRINT_ORDER)
 				.toList();
 		blueprintCache.put(expansionId, new CacheEntry<>(blueprints, now.plus(CACHE_TTL)));

@@ -97,6 +97,18 @@ class CatalogServiceTest {
 	}
 
 	@Test
+	void removesTrailingNumericLevelsFromCardTraderBlueprintNames() {
+		stubBaseSetExpansion();
+		when(cardTraderClient.getBlueprints(1472)).thenReturn(List.of(
+				new CardTraderBlueprint(111151, "Misty's Goldeen Lv.8", "Common | 30/132", 73, 1472),
+				new CardTraderBlueprint(111152, "Garchomp LV.X", "Ultra Rare | 120/120", 73, 1472)));
+
+		assertThat(catalogService.getPokemonBlueprints(1472)).containsExactly(
+				new CatalogBlueprint(111151, "Misty's Goldeen", "Common | 30/132", 1472),
+				new CatalogBlueprint(111152, "Garchomp LV.X", "Ultra Rare | 120/120", 1472));
+	}
+
+	@Test
 	void rejectsCatalogWithoutExpectedSinglesCategory() {
 		when(cardTraderClient.getGames()).thenReturn(List.of(new CardTraderGame(5, "Pokémon", "Pokémon")));
 		when(cardTraderClient.getCategories(5)).thenReturn(List.of(new CardTraderCategory(72, "Other", 5)));

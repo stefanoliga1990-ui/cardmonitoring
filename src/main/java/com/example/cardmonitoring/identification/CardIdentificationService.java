@@ -19,6 +19,7 @@ import org.springframework.util.StringUtils;
 import com.example.cardmonitoring.catalog.CatalogBlueprint;
 import com.example.cardmonitoring.catalog.CatalogCard;
 import com.example.cardmonitoring.catalog.CatalogExpansion;
+import com.example.cardmonitoring.catalog.CardNameNormalizer;
 import com.example.cardmonitoring.catalog.CatalogService;
 import com.example.cardmonitoring.pokemontcg.CardImage;
 import com.example.cardmonitoring.pokemontcg.CardImageService;
@@ -106,7 +107,7 @@ public class CardIdentificationService {
 		}
 		CatalogCard card = new CatalogCard(
 				candidate.cardTraderBlueprintId(),
-				candidate.cardTraderBlueprintName(),
+				CardNameNormalizer.withoutTrailingNumericLevel(candidate.cardTraderBlueprintName()),
 				candidate.cardTraderBlueprintVersion(),
 				candidate.cardTraderExpansionId(),
 				candidate.cardTraderExpansionName(),
