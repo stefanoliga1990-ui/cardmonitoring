@@ -137,9 +137,15 @@
         account: "#account"
     };
 
+    const THEME_STORAGE_KEY = "card-monitor-theme";
+    const LIGHT_THEME = "light";
+    const DARK_THEME = "dark";
+
     const elements = {
         authView: document.querySelector("#authView"),
         authenticatedNavigation: document.querySelector("#authenticatedNavigation"),
+        themeToggle: document.querySelector("#themeToggleButton"),
+        themeToggleIcon: document.querySelector("#themeToggleButton .theme-toggle-icon"),
         userMenu: document.querySelector("#userMenu"),
         currentUsername: document.querySelector("#currentUsername"),
         logout: document.querySelector("#logoutButton"),
@@ -293,6 +299,7 @@
     initialize();
 
     async function initialize() {
+        initializeTheme();
         renderLanguages();
         renderConditions();
         renderGradingOptions();
@@ -302,6 +309,7 @@
     }
 
     function bindEvents() {
+        elements.themeToggle.addEventListener("click", toggleTheme);
         elements.loginForm.addEventListener("submit", submitLogin);
         elements.registerForm.addEventListener("submit", submitRegistration);
         elements.showLogin.addEventListener("click", () => switchAuthMode("login"));
@@ -615,6 +623,35 @@
             label.append(input, text);
             elements.conditionChoices.append(label);
         });
+    }
+
+    function initializeTheme() {
+        applyTheme(document.documentElement.dataset.theme === DARK_THEME ? DARK_THEME : LIGHT_THEME, false);
+    }
+
+    function toggleTheme() {
+        const nextTheme = document.documentElement.dataset.theme === DARK_THEME ? LIGHT_THEME : DARK_THEME;
+        applyTheme(nextTheme, true);
+    }
+
+    function applyTheme(theme, persist) {
+        const isDark = theme === DARK_THEME;
+        const actionLabel = isDark ? "Attiva tema chiaro" : "Attiva tema scuro";
+
+        document.documentElement.dataset.theme = isDark ? DARK_THEME : LIGHT_THEME;
+        elements.themeToggle.setAttribute("aria-pressed", String(isDark));
+        elements.themeToggle.setAttribute("aria-label", actionLabel);
+        elements.themeToggle.setAttribute("title", actionLabel);
+        elements.themeToggleIcon.textContent = isDark ? "☀" : "☾";
+
+        if (persist) {
+            try {
+                localStorage.setItem(THEME_STORAGE_KEY, isDark ? DARK_THEME : LIGHT_THEME);
+            }
+            catch (error) {
+                // The selected theme still applies to the current session when storage is unavailable.
+            }
+        }
     }
 
     function renderGradingOptions() {

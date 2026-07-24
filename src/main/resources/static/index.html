@@ -1,10 +1,20 @@
 <!doctype html>
-<html lang="it">
+<html lang="it" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Crea un monitoraggio del prezzo medio delle carte Pokémon su CardTrader.">
     <title>Card Monitor</title>
+    <script>
+        try {
+            if (localStorage.getItem("card-monitor-theme") === "dark") {
+                document.documentElement.dataset.theme = "dark";
+            }
+        }
+        catch (error) {
+            // A non-persistent light theme remains available when browser storage is disabled.
+        }
+    </script>
     <link rel="stylesheet" href="/css/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js" defer></script>
     <script src="/js/app.js" defer></script>
@@ -20,6 +30,11 @@
             <button class="nav-link" type="button" data-view-link="collections">Collezioni</button>
             <button class="nav-link" type="button" data-view-link="wizard">Nuovo monitoraggio</button>
         </nav>
+        <button id="themeToggleButton" class="theme-toggle" type="button" aria-label="Attiva tema scuro"
+                aria-pressed="false" title="Attiva tema scuro">
+            <span class="theme-toggle-icon" aria-hidden="true">☾</span>
+            <span class="sr-only">Cambia tema</span>
+        </button>
         <div id="userMenu" class="user-menu" hidden>
             <button id="currentUsername" class="text-button user-name-button" type="button"></button>
             <button id="logoutButton" class="text-button" type="button">Esci</button>
