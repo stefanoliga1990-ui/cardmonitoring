@@ -53,6 +53,7 @@ public class CatalogService {
 		validatePokemonCatalog();
 		List<CatalogExpansion> expansions = cardTraderClient.getExpansions().stream()
 				.filter(expansion -> expansion.gameId() == POKEMON_GAME_ID)
+				.filter(OfficialPokemonSetCatalog::includes)
 				.map(expansion -> new CatalogExpansion(expansion.id(), expansion.name(), expansion.code()))
 				.sorted(EXPANSION_ORDER)
 				.toList();

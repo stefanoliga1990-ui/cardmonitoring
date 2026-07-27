@@ -14,4 +14,6 @@ public interface CardImageRepository extends JpaRepository<StoredCardImage, Long
 			String imageSource);
 
 	List<StoredCardImage> findByExpansionIdAndImageSource(long expansionId, String imageSource);
+
+	long deleteByExpansionIdNotIn(List<Long> expansionIds);
 }

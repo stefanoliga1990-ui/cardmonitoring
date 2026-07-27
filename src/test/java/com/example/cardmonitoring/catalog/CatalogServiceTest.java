@@ -39,6 +39,7 @@ class CatalogServiceTest {
 		stubValidPokemonCatalog();
 		when(cardTraderClient.getExpansions()).thenReturn(List.of(
 				new CardTraderExpansion(1, "Alpha", "a", 1),
+				new CardTraderExpansion(100, "League Promos", "lpr", 5),
 				new CardTraderExpansion(1478, "Base Set 2", "b2", 5),
 				new CardTraderExpansion(1472, "Base Set", "bs", 5)));
 
