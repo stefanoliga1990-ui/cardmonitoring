@@ -74,6 +74,7 @@ public class CatalogService {
 
 		List<CatalogBlueprint> blueprints = cardTraderClient.getBlueprints(expansionId).stream()
 				.filter(blueprint -> isPokemonSinglesBlueprint(blueprint, expansionId))
+				.filter(blueprint -> hasNumericCollectorNumber(blueprint.version()))
 				.map(blueprint -> new CatalogBlueprint(
 						blueprint.id(),
 						CardNameNormalizer.withoutTrailingNumericLevel(blueprint.name()),
@@ -123,6 +124,19 @@ public class CatalogService {
 	private static boolean isPokemonSinglesBlueprint(CardTraderBlueprint blueprint, long expansionId) {
 		return blueprint.expansionId() == expansionId
 				&& blueprint.categoryId() == POKEMON_SINGLES_CATEGORY_ID;
+	}
+
+	private static boolean hasNumericCollectorNumber(String version) {
+		if (version == null || version.isBlank()) {
+			return false;
+		}
+		Matcher matcher = COLLECTOR_NUMBER_PATTERN.matcher(version);
+		while (matcher.find()) {
+			if (matcher.group(1).isEmpty() && matcher.group(3).isEmpty()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static CollectorNumberSortKey collectorNumberSortKey(CatalogBlueprint blueprint) {

@@ -24,6 +24,7 @@ public class CardImageService {
 	private static final Duration IMAGE_URL_MAXIMUM_AGE = Duration.ofDays(120);
 	private static final Pattern COLLECTOR_NUMBER_PATTERN = Pattern.compile(
 			"(?i)(?:^|\\s|\\|)([a-z]*\\d+[a-z]*)\\s*(?:/\\s*([a-z]*\\d+[a-z]*))?");
+	private static final Pattern TRAILING_EX = Pattern.compile("(?i)\\s+ex\\s*$");
 
 	private final PokemonTcgClient pokemonTcgClient;
 	private final CardImageRepository cardImageRepository;
@@ -155,6 +156,16 @@ public class CardImageService {
 		LOGGER.info("Searching Pokemon TCG image candidates: blueprintId={}, collectorNumber={}, query={}",
 				card.blueprintId(), collectorNumber, query);
 		List<PokemonTcgCardCandidate> candidates = pokemonTcgClient.searchCards(query);
+		if (candidates.isEmpty()) {
+			String hyphenatedExName = hyphenatedExName(card.cardName());
+			if (hyphenatedExName != null) {
+				String fallbackQuery = query(hyphenatedExName, collectorNumber);
+				LOGGER.info(
+						"Pokemon TCG image search returned no candidates; retrying with hyphenated EX name: blueprintId={}, collectorNumber={}, query={}",
+						card.blueprintId(), collectorNumber, fallbackQuery);
+				candidates = pokemonTcgClient.searchCards(fallbackQuery);
+			}
+		}
 		LOGGER.info("Pokemon TCG returned {} image candidate(s): blueprintId={}, collectorNumber={}",
 				candidates.size(), card.blueprintId(), collectorNumber);
 		candidates.forEach(candidate -> LOGGER.debug(
@@ -206,6 +217,13 @@ public class CardImageService {
 
 	private static String query(String cardName, String collectorNumber) {
 		return "name:" + quoted(cardName) + " number:" + normalizeSearchNumber(collectorNumber);
+	}
+
+	private static String hyphenatedExName(String cardName) {
+		if (!StringUtils.hasText(cardName) || !TRAILING_EX.matcher(cardName).find()) {
+			return null;
+		}
+		return TRAILING_EX.matcher(cardName).replaceFirst("-EX");
 	}
 
 	private static String quoted(String value) {

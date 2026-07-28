@@ -61,6 +61,7 @@ class CatalogServiceTest {
 		when(cardTraderClient.getBlueprints(1472)).thenReturn(List.of(
 				new CardTraderBlueprint(2, "Wrong category", null, 1, 1472),
 				new CardTraderBlueprint(3, "Wrong expansion", null, 73, 1478),
+				new CardTraderBlueprint(111124, "Bulbasaur", "Reverse Holo Promo | MEW001", 73, 1472),
 				new CardTraderBlueprint(111151, "Charizard", "Holo Rare | 4/102", 73, 1472),
 				new CardTraderBlueprint(111125, "Pikachu", "Trainer Gallery Rare | TG01/TG30", 73, 1472),
 				new CardTraderBlueprint(111160, "Promo card", "Promo", 73, 1472),
@@ -70,10 +71,8 @@ class CatalogServiceTest {
 		List<CatalogBlueprint> secondCall = catalogService.getPokemonBlueprints(1472);
 
 		assertThat(firstCall).containsExactly(
-				new CatalogBlueprint(111125, "Pikachu", "Trainer Gallery Rare | TG01/TG30", 1472),
 				new CatalogBlueprint(111151, "Charizard", "Holo Rare | 4/102", 1472),
-				new CatalogBlueprint(111100, "Abra", "Common | 43/102", 1472),
-				new CatalogBlueprint(111160, "Promo card", "Promo", 1472));
+				new CatalogBlueprint(111100, "Abra", "Common | 43/102", 1472));
 		assertThat(secondCall).isSameAs(firstCall);
 		verify(cardTraderClient).getBlueprints(1472);
 	}
