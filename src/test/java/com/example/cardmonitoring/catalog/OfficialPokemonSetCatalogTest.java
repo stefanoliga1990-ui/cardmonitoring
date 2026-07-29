@@ -19,4 +19,9 @@ class OfficialPokemonSetCatalogTest {
 		assertThat(OfficialPokemonSetCatalog.includes("World Championship Decks 2025", "wcd2025")).isTrue();
 		assertThat(OfficialPokemonSetCatalog.includes("Pokémon Products", "popr")).isFalse();
 	}
+
+	@Test
+	void excludesKnownCardTraderExpansionWithoutPokemonSingles() {
+		assertThat(OfficialPokemonSetCatalog.includes("30th Celebration", "30c")).isFalse();
+	}
 }

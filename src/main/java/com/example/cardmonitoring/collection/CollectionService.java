@@ -134,6 +134,9 @@ public class CollectionService {
 				.findFirst()
 				.orElseThrow(() -> new CollectionNotFoundException("Pokemon expansion not found: " + expansionId));
 		List<CatalogBlueprint> blueprints = catalogService.getPokemonBlueprints(expansionId);
+		if (blueprints.isEmpty()) {
+			throw new CollectionNotFoundException("Pokemon expansion has no eligible cards: " + expansionId);
+		}
 		Instant now = Instant.now();
 		CollectionSet collectionSet = collectionSetRepository.findByExpansionId(expansionId)
 				.map(existing -> {

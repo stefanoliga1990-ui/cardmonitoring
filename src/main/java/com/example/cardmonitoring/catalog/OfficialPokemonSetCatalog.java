@@ -31,6 +31,12 @@ public final class OfficialPokemonSetCatalog {
 			"xytkp", "xyths", "wcd2004", "wcd2005", "wcd2006", "wcd2007", "wcd2008", "wcd2009",
 			"wcd2010", "wcd2011", "wcd2012", "wcd2013", "wcd2014", "wcd2015", "wcd2016", "wcd2017",
 			"wcd2018", "wcd2019", "wcd2022", "wcd2023", "wcd2024", "wcd2025");
+	/**
+	 * CardTrader expansions that are present in its catalogue but currently do
+	 * not contain any Pokemon Singles blueprints. They are intentionally not
+	 * offered as collections or monitoring candidates.
+	 */
+	private static final Set<String> EMPTY_CARDTRADER_EXPANSION_CODES = Set.of("30c");
 
 	private OfficialPokemonSetCatalog() {
 	}
@@ -40,8 +46,9 @@ public final class OfficialPokemonSetCatalog {
 	}
 
 	public static boolean includes(String expansionName, String expansionCode) {
-		return OFFICIAL_SET_NAMES.contains(normalize(expansionName))
-				|| CARDTRADER_CODE_ALIASES.contains(normalizeCode(expansionCode));
+		return !EMPTY_CARDTRADER_EXPANSION_CODES.contains(normalizeCode(expansionCode))
+				&& (OFFICIAL_SET_NAMES.contains(normalize(expansionName))
+				|| CARDTRADER_CODE_ALIASES.contains(normalizeCode(expansionCode)));
 	}
 
 	static String normalize(String value) {
