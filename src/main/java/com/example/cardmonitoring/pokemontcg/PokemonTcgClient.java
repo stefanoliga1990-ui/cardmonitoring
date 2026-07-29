@@ -82,6 +82,34 @@ public class PokemonTcgClient {
 	}
 
 	public PokemonTcgCardPage getCardsPage(int page, int pageSize) {
+		return getCardsPage(null, page, pageSize);
+	}
+
+	public List<PokemonTcgCardCandidate> getCardsForSet(String setId) {
+		if (!StringUtils.hasText(setId)) return List.of();
+		List<PokemonTcgCardCandidate> cards = new java.util.ArrayList<>();
+		int page = 1;
+		while (true) {
+			PokemonTcgCardPage result = getCardsPage("set.id:" + setId, page, 250);
+			cards.addAll(result.cards());
+			if (result.cards().isEmpty() || cards.size() >= result.totalCount() || result.cards().size() < 250) return List.copyOf(cards);
+			page++;
+		}
+	}
+
+	public List<PokemonTcgSetCandidate> getSets() {
+		try {
+			String body = get(uriBuilder -> uriBuilder.path("/sets").queryParam("pageSize", 250)
+					.queryParam("select", "id,name,ptcgoCode").build());
+			return responseParser.parseSets(body);
+		}
+		catch (RestClientException | IllegalArgumentException exception) {
+			LOGGER.warn("Pokemon TCG set API failed: {}", exception.getMessage());
+			return List.of();
+		}
+	}
+
+	private PokemonTcgCardPage getCardsPage(String query, int page, int pageSize) {
 		int safePage = Math.max(1, page);
 		int safePageSize = Math.max(1, Math.min(pageSize, 250));
 		for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -90,6 +118,7 @@ public class PokemonTcgClient {
 						safePage, safePageSize, attempt);
 				String responseBody = get(uriBuilder -> uriBuilder
 						.path("/cards")
+						.queryParamIfPresent("q", java.util.Optional.ofNullable(query))
 						.queryParam("page", safePage)
 						.queryParam("pageSize", safePageSize)
 						.queryParam("select", "id,name,number,set,images")

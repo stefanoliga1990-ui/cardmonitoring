@@ -25,6 +25,9 @@ class CardImageServiceTest {
 	@Mock
 	private CardImageRepository cardImageRepository;
 
+	@Mock
+	private PokemonTcgSetImageService pokemonTcgSetImageService;
+
 	@Test
 	void retriesWithHyphenatedExNameWhenTheFirstSearchHasNoCandidates() {
 		CatalogCard card = new CatalogCard(84, "Sceptile EX", "Ultra Rare | 84/98", 1573, "Ancient Origins", "aor");
@@ -34,16 +37,35 @@ class CardImageServiceTest {
 
 		when(cardImageRepository.findByExpansionIdAndBlueprintIdAndCollectorNumberAndImageSource(
 				1573, 84, "84", "POKEMON_TCG_API")).thenReturn(Optional.empty());
+		when(pokemonTcgSetImageService.findCandidates(card, "84")).thenReturn(List.of());
 		when(pokemonTcgClient.searchCards("name:\"Sceptile EX\" number:84")).thenReturn(List.of());
 		when(pokemonTcgClient.searchCards("name:\"Sceptile-EX\" number:84")).thenReturn(List.of(candidate));
 		when(cardImageRepository.saveAndFlush(any(StoredCardImage.class)))
 				.thenAnswer(invocation -> invocation.getArgument(0));
 
-		Optional<CardImage> image = new CardImageService(pokemonTcgClient, cardImageRepository).resolve(card);
+		Optional<CardImage> image = new CardImageService(pokemonTcgClient, pokemonTcgSetImageService, cardImageRepository)
+				.resolve(card);
 
 		assertThat(image).isPresent();
 		assertThat(image.get().externalCardId()).isEqualTo("xy7-84");
 		verify(pokemonTcgClient).searchCards(eq("name:\"Sceptile EX\" number:84"));
 		verify(pokemonTcgClient).searchCards(eq("name:\"Sceptile-EX\" number:84"));
+	}
+
+	@Test
+	void usesMappedSetAndCollectorNumberBeforeCardName() {
+		CatalogCard card = new CatalogCard(96, "M Primal Kyogre ex", "Ultra Rare | 96/98", 1573, "Ancient Origins", "aor");
+		PokemonTcgCardCandidate candidate = new PokemonTcgCardCandidate("xy7-96", "Primal Kyogre-EX", "96", "xy7",
+				"Ancient Origins", null, 98, 100, null, "https://images.test/s.png", "https://images.test/l.png");
+		when(cardImageRepository.findByExpansionIdAndBlueprintIdAndCollectorNumberAndImageSource(
+				1573, 96, "96", "POKEMON_TCG_API")).thenReturn(Optional.empty());
+		when(pokemonTcgSetImageService.findCandidates(card, "96")).thenReturn(List.of(candidate));
+		when(cardImageRepository.saveAndFlush(any(StoredCardImage.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		Optional<CardImage> image = new CardImageService(pokemonTcgClient, pokemonTcgSetImageService, cardImageRepository)
+				.resolve(card);
+
+		assertThat(image).isPresent();
+		assertThat(image.get().externalCardId()).isEqualTo("xy7-96");
 	}
 }

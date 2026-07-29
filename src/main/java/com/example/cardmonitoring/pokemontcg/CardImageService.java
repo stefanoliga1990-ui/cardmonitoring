@@ -27,10 +27,13 @@ public class CardImageService {
 	private static final Pattern TRAILING_EX = Pattern.compile("(?i)\\s+ex\\s*$");
 
 	private final PokemonTcgClient pokemonTcgClient;
+	private final PokemonTcgSetImageService pokemonTcgSetImageService;
 	private final CardImageRepository cardImageRepository;
 
-	public CardImageService(PokemonTcgClient pokemonTcgClient, CardImageRepository cardImageRepository) {
+	public CardImageService(PokemonTcgClient pokemonTcgClient,
+			PokemonTcgSetImageService pokemonTcgSetImageService, CardImageRepository cardImageRepository) {
 		this.pokemonTcgClient = pokemonTcgClient;
+		this.pokemonTcgSetImageService = pokemonTcgSetImageService;
 		this.cardImageRepository = cardImageRepository;
 	}
 
@@ -152,6 +155,20 @@ public class CardImageService {
 					"Pokemon TCG external id refresh did not return a compatible image, falling back to search: blueprintId={}, externalCardId={}, collectorNumber={}",
 					card.blueprintId(), externalCardId, collectorNumber);
 		}
+		List<PokemonTcgCardCandidate> setCandidates = pokemonTcgSetImageService.findCandidates(card, collectorNumber);
+		if (setCandidates.size() == 1) {
+			PokemonTcgCardCandidate candidate = setCandidates.get(0);
+			LOGGER.info("Selected Pokemon TCG image by mapped set and number: blueprintId={}, candidateId={}, set='{}', number={}",
+					card.blueprintId(), candidate.id(), candidate.setName(), candidate.number());
+			return Optional.of(toCardImage(candidate));
+		}
+		if (setCandidates.size() > 1) {
+			Optional<PokemonTcgCardCandidate> selectedSetCandidate = uniqueNameMatch(card, setCandidates);
+			if (selectedSetCandidate.isPresent()) return Optional.of(toCardImage(selectedSetCandidate.get()));
+			LOGGER.info("Mapped Pokemon TCG set has ambiguous collector number; falling back to name search: blueprintId={}, candidates={}",
+					card.blueprintId(), setCandidates.size());
+		}
+
 		String query = query(card.cardName(), collectorNumber);
 		LOGGER.info("Searching Pokemon TCG image candidates: blueprintId={}, collectorNumber={}, query={}",
 				card.blueprintId(), collectorNumber, query);
@@ -213,6 +230,14 @@ public class CardImageService {
 
 	private static CardImage toCardImage(PokemonTcgCardCandidate candidate) {
 		return new CardImage(candidate.smallImageUrl(), candidate.largeImageUrl(), SOURCE, candidate.id());
+	}
+
+	private static Optional<PokemonTcgCardCandidate> uniqueNameMatch(
+			CatalogCard card, List<PokemonTcgCardCandidate> candidates) {
+		List<PokemonTcgCardCandidate> matching = candidates.stream()
+				.filter(candidate -> equivalentCardNames(card.cardName(), candidate.name()))
+				.toList();
+		return matching.size() == 1 ? Optional.of(matching.get(0)) : Optional.empty();
 	}
 
 	private static String query(String cardName, String collectorNumber) {
@@ -285,6 +310,18 @@ public class CardImageService {
 
 	private static boolean equalsNormalized(String left, String right) {
 		return normalizeText(left).equals(normalizeText(right));
+	}
+
+	private static boolean equivalentCardNames(String left, String right) {
+		return canonicalCardName(left).equals(canonicalCardName(right));
+	}
+
+	private static String canonicalCardName(String value) {
+		String normalized = normalizeText(value);
+		if (normalized.startsWith("m ") && normalized.endsWith(" ex")) {
+			normalized = normalized.substring(2);
+		}
+		return normalized.replaceAll(" ex$", "").trim();
 	}
 
 	private static boolean containsNormalized(String container, String value) {

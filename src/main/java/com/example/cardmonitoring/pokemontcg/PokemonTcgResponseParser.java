@@ -95,6 +95,25 @@ class PokemonTcgResponseParser {
 		return Optional.empty();
 	}
 
+	List<PokemonTcgSetCandidate> parseSets(String responseBody) {
+		try {
+			JsonNode root = objectMapper.readTree(responseBody);
+			JsonNode data = root.get("data");
+			if (data == null || !data.isArray()) return List.of();
+			List<PokemonTcgSetCandidate> sets = new ArrayList<>();
+			for (JsonNode item : data) {
+				String id = optionalText(item, "id");
+				String name = optionalText(item, "name");
+				if (id != null && name != null) sets.add(new PokemonTcgSetCandidate(id, name, optionalText(item, "ptcgoCode")));
+			}
+			return List.copyOf(sets);
+		}
+		catch (RuntimeException exception) {
+			LOGGER.warn("Pokemon TCG set response parsing failed: {}", exception.getMessage());
+			return List.of();
+		}
+	}
+
 	private static List<PokemonTcgCardCandidate> parseCandidateList(JsonNode root) {
 		JsonNode data = root.get("data");
 		if (data == null || !data.isArray()) {
