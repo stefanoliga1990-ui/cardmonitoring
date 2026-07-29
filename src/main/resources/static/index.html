@@ -29,6 +29,7 @@
             <button class="nav-link is-active" type="button" data-view-link="dashboard">Dashboard</button>
             <button class="nav-link" type="button" data-view-link="collections">Collezioni</button>
             <button class="nav-link" type="button" data-view-link="wizard">Nuovo monitoraggio</button>
+            <button id="adminNavigationLink" class="nav-link" type="button" data-view-link="admin" hidden>Admin</button>
         </nav>
         <button id="themeToggleButton" class="theme-toggle" type="button" aria-label="Attiva tema scuro"
                 aria-pressed="false" title="Attiva tema scuro">
@@ -211,6 +212,40 @@
             </section>
 
             <section id="monitoringGrid" class="monitoring-grid" aria-label="Monitoraggi attivi" hidden></section>
+        </section>
+
+        <section id="adminView" class="app-view admin-view" aria-labelledby="adminTitle" hidden>
+            <header class="intro">
+                <p class="eyebrow">Amministrazione</p>
+                <h1 id="adminTitle">Strumenti amministrativi.</h1>
+                <p class="intro-copy">Controlla la copertura delle immagini e gestisci il caricamento massivo temporaneo.</p>
+            </header>
+
+            <section id="imageCoveragePanel" class="tool-panel is-collapsed" aria-labelledby="imageCoverageTitle">
+                <button id="imageCoverageToggleButton" class="tool-toggle" type="button" aria-expanded="false">
+                    <span class="tool-toggle-text">
+                        <span class="eyebrow">Verifica cache immagini</span>
+                        <span id="imageCoverageTitle" class="tool-title">Set con URL immagini mancanti.</span>
+                        <span id="imageCoverageCollapsedStatus" class="tool-collapsed-status"></span>
+                    </span>
+                    <span class="tool-toggle-icon" aria-hidden="true">⌄</span>
+                </button>
+                <div class="tool-panel-content">
+                    <div class="tool-copy">
+                        <p>Confronta tutte le carte valide dei set supportati con gli URL immagini presenti nel DB.</p>
+                        <div id="imageCoverageStatus" class="tool-status" role="status" aria-live="polite"></div>
+                        <div id="imageCoverageProgress" class="tool-progress" aria-label="Avanzamento verifica immagini" hidden>
+                            <span id="imageCoverageProgressBar"></span>
+                        </div>
+                        <div id="imageCoverageResults" class="tool-result-list" aria-live="polite"></div>
+                        <div class="tool-actions">
+                            <button id="imageCoverageStartButton" class="button button--primary" type="button">
+                                Verifica set incompleti
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </section>
 
         <section id="collectionsView" class="app-view collections-view" aria-labelledby="collectionsTitle" hidden>

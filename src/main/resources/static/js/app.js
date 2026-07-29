@@ -98,6 +98,7 @@
 
     const authState = {
         user: null,
+        administrator: false,
         csrfHeader: "X-XSRF-TOKEN",
         csrfToken: null,
         submitting: false
@@ -118,6 +119,12 @@
         pollTimer: null
     };
 
+    const imageCoverageState = {
+        loading: false,
+        expanded: false,
+        pollTimer: null
+    };
+
     const collectionsState = {
         items: [],
         detail: null,
@@ -134,7 +141,8 @@
         dashboard: "#dashboard",
         wizard: "#wizard",
         collections: "#collections",
-        account: "#account"
+        account: "#account",
+        admin: "#admin"
     };
 
     const THEME_STORAGE_KEY = "card-monitor-theme";
@@ -223,6 +231,16 @@
         createAnother: document.querySelector("#createAnotherButton"),
         goToDashboard: document.querySelector("#goToDashboardButton"),
         dashboardView: document.querySelector("#dashboardView"),
+        adminView: document.querySelector("#adminView"),
+        adminNavigationLink: document.querySelector("#adminNavigationLink"),
+        imageCoveragePanel: document.querySelector("#imageCoveragePanel"),
+        imageCoverageToggle: document.querySelector("#imageCoverageToggleButton"),
+        imageCoverageCollapsedStatus: document.querySelector("#imageCoverageCollapsedStatus"),
+        imageCoverageStatus: document.querySelector("#imageCoverageStatus"),
+        imageCoverageProgress: document.querySelector("#imageCoverageProgress"),
+        imageCoverageProgressBar: document.querySelector("#imageCoverageProgressBar"),
+        imageCoverageResults: document.querySelector("#imageCoverageResults"),
+        imageCoverageStart: document.querySelector("#imageCoverageStartButton"),
         collectionsView: document.querySelector("#collectionsView"),
         collectionsStatus: document.querySelector("#collectionsStatus"),
         showAddCollection: document.querySelector("#showAddCollectionButton"),
@@ -299,6 +317,7 @@
     initialize();
 
     async function initialize() {
+        elements.adminView.append(elements.imageBackfillPanel);
         initializeTheme();
         renderLanguages();
         renderConditions();
@@ -409,6 +428,8 @@
         elements.imageBackfillToggle.addEventListener("click", toggleImageBackfillPanel);
         elements.imageBackfillStart.addEventListener("click", startImageBackfill);
         elements.imageBackfillStop.addEventListener("click", stopImageBackfill);
+        elements.imageCoverageToggle.addEventListener("click", toggleImageCoveragePanel);
+        elements.imageCoverageStart.addEventListener("click", startImageCoverageAudit);
         elements.backToDashboard.addEventListener("click", showDashboard);
         elements.detailRefresh.addEventListener("click", () => refreshMonitoring(dashboardState.selectedMonitoringId, true));
         elements.detailPurchasePrice.addEventListener("click", () => editPurchasePrice(dashboardState.selectedMonitoringId, true));
@@ -445,6 +466,9 @@
                 }
                 else if (link.dataset.viewLink === "collections") {
                     showCollections();
+                }
+                else if (link.dataset.viewLink === "admin") {
+                    showAdmin();
                 }
                 else {
                     showDashboard();
@@ -526,6 +550,7 @@
 
     async function completeAuthentication(user) {
         authState.user = user;
+        await loadAdminAccess();
         elements.currentUsername.textContent = user.username;
         elements.authenticatedNavigation.hidden = false;
         elements.userMenu.hidden = false;
@@ -562,6 +587,7 @@
         try {
             await requestJson("/api/auth/logout", { method: "POST" });
             authState.user = null;
+            authState.administrator = false;
             authState.csrfToken = null;
             dashboardState.items = [];
             collectionsState.items = [];
@@ -571,6 +597,7 @@
             telegramState.linked = false;
             stopTelegramLinkPolling();
             stopImageBackfillPolling();
+            stopImageCoveragePolling();
             await refreshCsrfToken();
             showAuth("Sessione terminata correttamente.", "info");
         }
@@ -585,9 +612,12 @@
 
     function showAuth(message, type = "error") {
         authState.user = null;
+        authState.administrator = false;
         hideChangePasswordForm();
         hideDeleteAccountConfirmation();
+        stopImageCoveragePolling();
         elements.authenticatedNavigation.hidden = true;
+        elements.adminNavigationLink.hidden = true;
         elements.userMenu.hidden = true;
         setActiveView("auth");
         switchAuthMode("login");
@@ -598,6 +628,19 @@
 
     function setAuthStatus(message, type) {
         setPanelStatus(elements.authStatus, message, type);
+    }
+
+    async function loadAdminAccess() {
+        authState.administrator = false;
+        elements.adminNavigationLink.hidden = true;
+        try {
+            const status = await requestJson("/api/admin/status");
+            authState.administrator = Boolean(status && status.administrator);
+        }
+        catch (error) {
+            authState.administrator = false;
+        }
+        elements.adminNavigationLink.hidden = !authState.administrator;
     }
 
     function renderLanguages() {
@@ -1363,6 +1406,10 @@
             await showAccount(false);
             return;
         }
+        if (route.view === "admin") {
+            await showAdmin(false);
+            return;
+        }
         if (route.view === "collections") {
             await showCollections(false);
             return;
@@ -1384,6 +1431,9 @@
         }
         if (hash === ROUTES.account) {
             return { view: "account" };
+        }
+        if (hash === ROUTES.admin) {
+            return { view: "admin" };
         }
         if (hash === ROUTES.collections) {
             return { view: "collections" };
@@ -1448,6 +1498,23 @@
         }
         setActiveView("account");
         await loadAccount();
+    }
+
+    async function showAdmin(updateHash = true) {
+        if (authState.user === null) {
+            showAuth();
+            return;
+        }
+        if (!authState.administrator) {
+            await showDashboard(true);
+            return;
+        }
+        if (updateHash) {
+            updateRoute(ROUTES.admin);
+        }
+        setActiveView("admin");
+        loadImageBackfillStatus();
+        await loadImageCoverageStatus();
     }
 
     async function loadCollections() {
@@ -1850,12 +1917,16 @@
     function setActiveView(view) {
         elements.authView.hidden = view !== "auth";
         elements.dashboardView.hidden = view !== "dashboard";
+        elements.adminView.hidden = view !== "admin";
         elements.collectionsView.hidden = view !== "collections";
         elements.accountView.hidden = view !== "account";
         elements.wizardView.hidden = view !== "wizard";
         elements.detailView.hidden = view !== "detail";
         if (view !== "collections") {
             stopCollectionPolling();
+        }
+        if (view !== "admin") {
+            stopImageCoveragePolling();
         }
         document.querySelectorAll(".nav-link[data-view-link]").forEach((link) => {
             link.classList.toggle("is-active", link.dataset.viewLink === view);
@@ -1916,6 +1987,7 @@
                 })
             });
             authState.user = null;
+            authState.administrator = false;
             authState.csrfToken = null;
             dashboardState.items = [];
             telegramState.linked = false;
@@ -1969,6 +2041,7 @@
                 body: JSON.stringify({ currentPassword: elements.deleteAccountPassword.value })
             });
             authState.user = null;
+            authState.administrator = false;
             authState.csrfToken = null;
             dashboardState.items = [];
             telegramState.linked = false;
@@ -2004,7 +2077,6 @@
         elements.monitoringGrid.hidden = true;
         clearDashboardStatus();
         loadTelegramStatus();
-        loadImageBackfillStatus();
 
         try {
             const monitorings = await requestJson("/api/monitorings");
@@ -2353,6 +2425,149 @@
         finally {
             imageBackfillState.loading = false;
         }
+    }
+
+    async function loadImageCoverageStatus() {
+        if (imageCoverageState.loading || !authState.administrator) {
+            return;
+        }
+        imageCoverageState.loading = true;
+        try {
+            renderImageCoverageStatus(await requestJson("/api/admin/image-coverage/status"));
+        }
+        catch (error) {
+            setImageCoverageStatus(errorMessage(error, "Stato verifica immagini non disponibile."), "error");
+        }
+        finally {
+            imageCoverageState.loading = false;
+        }
+    }
+
+    async function startImageCoverageAudit() {
+        if (imageCoverageState.loading || !authState.administrator) {
+            return;
+        }
+        imageCoverageState.loading = true;
+        elements.imageCoverageStart.disabled = true;
+        setImageCoveragePanelExpanded(true);
+        setImageCoverageStatus("Avvio della verifica dei set in corso…", "info");
+        try {
+            renderImageCoverageStatus(await requestJson("/api/admin/image-coverage/start", { method: "POST" }));
+        }
+        catch (error) {
+            setImageCoverageStatus(errorMessage(error, "Impossibile avviare la verifica immagini."), "error");
+            elements.imageCoverageStart.disabled = false;
+        }
+        finally {
+            imageCoverageState.loading = false;
+        }
+    }
+
+    function renderImageCoverageStatus(status) {
+        status = status || {};
+        const processed = Number(status.processedExpansions || 0);
+        const total = Number(status.totalExpansions || 0);
+        const running = Boolean(status.running);
+        const progress = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
+        elements.imageCoverageProgress.hidden = !running;
+        elements.imageCoverageProgressBar.style.width = `${progress}%`;
+        elements.imageCoverageStart.disabled = running;
+        renderImageCoverageResults(status.incompleteExpansions || []);
+
+        if (running) {
+            setImageCoverageCollapsedStatus(`In corso · ${progress}%`, "running");
+            const current = status.currentExpansion ? ` Set corrente: ${status.currentExpansion}.` : "";
+            setImageCoverageStatus(`Verifica in corso: ${formatInteger(processed)} di ${formatInteger(total)} set.${current}`, "info");
+            startImageCoveragePolling();
+            return;
+        }
+
+        stopImageCoveragePolling();
+        if (!status.startedAt) {
+            setImageCoverageCollapsedStatus("Non eseguita", "info");
+            setImageCoverageStatus("Avvia la verifica per vedere i set con immagini mancanti.", "info");
+            return;
+        }
+
+        const incomplete = (status.incompleteExpansions || []).length;
+        const failed = Number(status.failedExpansions || 0);
+        setImageCoverageCollapsedStatus(
+            incomplete === 0 ? "Completa" : `${formatInteger(incomplete)} set incompleti`,
+            incomplete === 0 ? "linked" : "info"
+        );
+        const failures = failed > 0 ? ` ${formatInteger(failed)} set non sono stati verificati.` : "";
+        const lastError = status.lastError ? ` Ultimo errore: ${status.lastError}` : "";
+        setImageCoverageStatus(
+            incomplete === 0
+                ? `Verifica completata: tutti i set controllati hanno un URL immagine per ogni carta.${failures}${lastError}`
+                : `Verifica completata: ${formatInteger(incomplete)} set hanno almeno un URL immagine mancante.${failures}${lastError}`,
+            failed > 0 ? "error" : "info"
+        );
+    }
+
+    function renderImageCoverageResults(results) {
+        elements.imageCoverageResults.replaceChildren();
+        if (!results.length) {
+            return;
+        }
+        const title = createElement("p", "tool-result-title", "Set incompleti");
+        const list = createElement("div", "tool-result-items");
+        results.forEach((result) => {
+            const row = createElement("div", "tool-result-item");
+            const name = createElement(
+                "strong",
+                "",
+                `${result.expansionName || "Set"}${result.expansionCode ? ` · ${result.expansionCode}` : ""}`
+            );
+            const details = createElement(
+                "span",
+                "",
+                `${formatInteger(result.imagesAvailable || 0)} URL su ${formatInteger(result.totalCards || 0)} carte · `
+                + `${formatInteger(result.missingImages || 0)} mancanti`
+            );
+            row.append(name, details);
+            list.append(row);
+        });
+        elements.imageCoverageResults.append(title, list);
+    }
+
+    function startImageCoveragePolling() {
+        if (imageCoverageState.pollTimer !== null) {
+            return;
+        }
+        imageCoverageState.pollTimer = window.setTimeout(async () => {
+            imageCoverageState.pollTimer = null;
+            await loadImageCoverageStatus();
+        }, 2500);
+    }
+
+    function stopImageCoveragePolling() {
+        if (imageCoverageState.pollTimer !== null) {
+            window.clearTimeout(imageCoverageState.pollTimer);
+            imageCoverageState.pollTimer = null;
+        }
+    }
+
+    function toggleImageCoveragePanel() {
+        setImageCoveragePanelExpanded(!imageCoverageState.expanded);
+    }
+
+    function setImageCoveragePanelExpanded(expanded) {
+        imageCoverageState.expanded = expanded;
+        elements.imageCoveragePanel.classList.toggle("is-collapsed", !expanded);
+        elements.imageCoverageToggle.setAttribute("aria-expanded", String(expanded));
+    }
+
+    function setImageCoverageStatus(message, type) {
+        elements.imageCoverageStatus.textContent = message;
+        elements.imageCoverageStatus.classList.toggle("is-error", type === "error");
+    }
+
+    function setImageCoverageCollapsedStatus(message, type) {
+        elements.imageCoverageCollapsedStatus.textContent = message;
+        elements.imageCoverageCollapsedStatus.classList.toggle("is-linked", type === "linked");
+        elements.imageCoverageCollapsedStatus.classList.toggle("is-error", type === "error");
+        elements.imageCoverageCollapsedStatus.classList.toggle("is-running", type === "running");
     }
 
     async function stopImageBackfill() {

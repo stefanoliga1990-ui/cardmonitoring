@@ -107,6 +107,36 @@ class SecurityIntegrationTest {
 	}
 
 	@Test
+	void restrictsAdminToolsToConfiguredAdministrator() throws Exception {
+		MvcResult regularRegistration = mockMvc.perform(post("/api/auth/register")
+				.with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"username":"regularuser","password":"password-sicura"}
+						"""))
+				.andExpect(status().isCreated())
+				.andReturn();
+		MockHttpSession regularSession = (MockHttpSession) regularRegistration.getRequest().getSession(false);
+		mockMvc.perform(get("/api/admin/status").session(regularSession))
+				.andExpect(status().isForbidden());
+		mockMvc.perform(get("/api/tools/image-backfill/status").session(regularSession))
+				.andExpect(status().isForbidden());
+
+		MvcResult adminRegistration = mockMvc.perform(post("/api/auth/register")
+				.with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"username":"stefanoliga12","password":"password-sicura"}
+						"""))
+				.andExpect(status().isCreated())
+				.andReturn();
+		MockHttpSession adminSession = (MockHttpSession) adminRegistration.getRequest().getSession(false);
+		mockMvc.perform(get("/api/admin/status").session(adminSession))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.administrator").value(true));
+	}
+
+	@Test
 	void managesAccountProfilePasswordAndDeletion() throws Exception {
 		MvcResult registration = mockMvc.perform(post("/api/auth/register")
 				.with(csrf())

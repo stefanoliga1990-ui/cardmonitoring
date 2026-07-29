@@ -12,6 +12,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.access.AccessDeniedException;
 
 import com.example.cardmonitoring.cardtrader.CardTraderException;
 import com.example.cardmonitoring.catalog.CatalogNotFoundException;
@@ -78,6 +79,11 @@ public class ApiExceptionHandler {
 	ResponseEntity<ProblemDetail> handleAuthenticationException() {
 		return problem(HttpStatus.UNAUTHORIZED, "Authentication failed", "INVALID_CREDENTIALS",
 				"Invalid username or password");
+	}
+
+	@ExceptionHandler(AccessDeniedException.class)
+	ResponseEntity<ProblemDetail> handleAccessDeniedException() {
+		return problem(HttpStatus.FORBIDDEN, "Access denied", "ACCESS_DENIED", "Access denied");
 	}
 
 	@ExceptionHandler(IllegalArgumentException.class)
