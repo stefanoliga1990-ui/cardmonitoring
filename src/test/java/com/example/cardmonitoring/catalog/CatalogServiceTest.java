@@ -64,6 +64,7 @@ class CatalogServiceTest {
 				new CardTraderBlueprint(111124, "Bulbasaur", "Reverse Holo Promo | MEW001", 73, 1472),
 				new CardTraderBlueprint(111151, "Charizard", "Holo Rare | 4/102", 73, 1472),
 				new CardTraderBlueprint(111125, "Pikachu", "Trainer Gallery Rare | TG01/TG30", 73, 1472),
+				new CardTraderBlueprint(111126, "Fire Energy", "2017 | Charizard Stamp 2", 73, 1472),
 				new CardTraderBlueprint(111160, "Promo card", "Promo", 73, 1472),
 				new CardTraderBlueprint(111100, "Abra", "Common | 43/102", 73, 1472)));
 
@@ -72,7 +73,8 @@ class CatalogServiceTest {
 
 		assertThat(firstCall).containsExactly(
 				new CatalogBlueprint(111151, "Charizard", "Holo Rare | 4/102", 1472),
-				new CatalogBlueprint(111100, "Abra", "Common | 43/102", 1472));
+				new CatalogBlueprint(111100, "Abra", "Common | 43/102", 1472),
+				new CatalogBlueprint(111126, "Fire Energy", "2017 | Charizard Stamp 2", 1472));
 		assertThat(secondCall).isSameAs(firstCall);
 		verify(cardTraderClient).getBlueprints(1472);
 	}

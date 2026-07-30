@@ -9,18 +9,15 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.example.cardmonitoring.catalog.CatalogBlueprint;
 import com.example.cardmonitoring.catalog.CatalogExpansion;
 import com.example.cardmonitoring.catalog.CatalogService;
+import com.example.cardmonitoring.catalog.CollectorNumberParser;
 import com.example.cardmonitoring.monitoring.Monitoring;
 import com.example.cardmonitoring.monitoring.MonitoringRepository;
 import com.example.cardmonitoring.pokemontcg.CardImage;
@@ -33,8 +30,6 @@ import com.example.cardmonitoring.user.AppUserRepository;
 public class CollectionService {
 
 	private static final String IMAGE_SOURCE = "POKEMON_TCG_API";
-	private static final Pattern COLLECTOR_NUMBER_PATTERN = Pattern.compile(
-			"(?i)(?:^|\\s|\\|)([a-z]*\\d+[a-z]*)\\s*(?:/\\s*([a-z]*\\d+[a-z]*))?");
 
 	private final CatalogService catalogService;
 	private final AppUserRepository appUserRepository;
@@ -44,7 +39,6 @@ public class CollectionService {
 	private final UserCollectionCardRepository userCollectionCardRepository;
 	private final CardImageRepository cardImageRepository;
 	private final MonitoringRepository monitoringRepository;
-	private final CollectionImageSyncService collectionImageSyncService;
 
 	public CollectionService(
 			CatalogService catalogService,
@@ -54,8 +48,7 @@ public class CollectionService {
 			UserCollectionRepository userCollectionRepository,
 			UserCollectionCardRepository userCollectionCardRepository,
 			CardImageRepository cardImageRepository,
-			MonitoringRepository monitoringRepository,
-			CollectionImageSyncService collectionImageSyncService) {
+			MonitoringRepository monitoringRepository) {
 		this.catalogService = catalogService;
 		this.appUserRepository = appUserRepository;
 		this.collectionSetRepository = collectionSetRepository;
@@ -64,7 +57,6 @@ public class CollectionService {
 		this.userCollectionCardRepository = userCollectionCardRepository;
 		this.cardImageRepository = cardImageRepository;
 		this.monitoringRepository = monitoringRepository;
-		this.collectionImageSyncService = collectionImageSyncService;
 	}
 
 	@Transactional(readOnly = true)
@@ -91,10 +83,6 @@ public class CollectionService {
 				})
 				.orElseGet(() -> new UserCollection(owner, collectionSet, Instant.now()));
 		userCollection = userCollectionRepository.save(userCollection);
-		Long collectionSetId = collectionSet.getId();
-		if (collectionSet.getImageSyncStatus() != CollectionImageSyncStatus.COMPLETED) {
-			registerImageSyncAfterCommit(collectionSetId);
-		}
 		return toDetail(userCollection, alreadyPresent);
 	}
 
@@ -155,8 +143,8 @@ public class CollectionService {
 				.stream()
 				.collect(Collectors.toMap(CollectionCard::getBlueprintId, card -> card));
 		int index = 0;
-		for (CatalogBlueprint blueprint : blueprints) {
-			String collectorNumber = collectorNumber(blueprint.version()).orElse(null);
+		for (CatalogBlueprint blueprint : blueprints.stream().sorted(COLLECTION_CARD_ORDER).toList()) {
+			String collectorNumber = CollectorNumberParser.fromVersion(blueprint.version()).orElse(null);
 			CollectionCard existingCard = existingCards.get(blueprint.id());
 			if (existingCard == null) {
 				collectionCardRepository.save(new CollectionCard(
@@ -260,43 +248,22 @@ public class CollectionService {
 				.orElseThrow(() -> new CollectionNotFoundException("User not found"));
 	}
 
-	private void registerImageSyncAfterCommit(long collectionSetId) {
-		if (TransactionSynchronizationManager.isSynchronizationActive()) {
-			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-				@Override
-				public void afterCommit() {
-					collectionImageSyncService.start(collectionSetId);
-				}
-			});
-		}
-		else {
-			collectionImageSyncService.start(collectionSetId);
-		}
+	private static final Comparator<CatalogBlueprint> COLLECTION_CARD_ORDER = Comparator
+			.comparing(CollectionService::hasNonStandardCollectorNumber)
+			.thenComparingInt(CollectionService::numericCollectorNumber)
+			.thenComparing(CatalogBlueprint::name, String.CASE_INSENSITIVE_ORDER)
+			.thenComparing(CatalogBlueprint::id);
+
+	private static boolean hasNonStandardCollectorNumber(CatalogBlueprint blueprint) {
+		return CollectorNumberParser.fromVersion(blueprint.version())
+				.map(number -> !number.matches("\\d+"))
+				.orElse(true);
 	}
 
-	private static Optional<String> collectorNumber(String version) {
-		if (version == null || version.isBlank()) {
-			return Optional.empty();
-		}
-		Matcher matcher = COLLECTOR_NUMBER_PATTERN.matcher(version);
-		while (matcher.find()) {
-			String candidate = matcher.group(1);
-			if (candidate != null && !candidate.isBlank()) {
-				return Optional.of(normalizeNumber(candidate));
-			}
-		}
-		return Optional.empty();
-	}
-
-	private static String normalizeNumber(String value) {
-		if (value == null) {
-			return "";
-		}
-		String normalized = value.trim().toUpperCase();
-		Matcher matcher = Pattern.compile("^([A-Z]*)(0*)(\\d+)([A-Z]*)$").matcher(normalized);
-		if (matcher.matches()) {
-			return matcher.group(1) + Integer.parseInt(matcher.group(3)) + matcher.group(4);
-		}
-		return normalized;
+	private static int numericCollectorNumber(CatalogBlueprint blueprint) {
+		return CollectorNumberParser.fromVersion(blueprint.version())
+				.filter(number -> number.matches("\\d+"))
+				.map(Integer::parseInt)
+				.orElse(Integer.MAX_VALUE);
 	}
 }

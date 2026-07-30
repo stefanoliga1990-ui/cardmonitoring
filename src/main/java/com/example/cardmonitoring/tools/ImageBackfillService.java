@@ -4,12 +4,9 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +16,7 @@ import com.example.cardmonitoring.catalog.CatalogBlueprint;
 import com.example.cardmonitoring.catalog.CatalogCard;
 import com.example.cardmonitoring.catalog.CatalogExpansion;
 import com.example.cardmonitoring.catalog.CatalogService;
+import com.example.cardmonitoring.catalog.CollectorNumberParser;
 import com.example.cardmonitoring.pokemontcg.CardImage;
 import com.example.cardmonitoring.pokemontcg.CardImageRepository;
 import com.example.cardmonitoring.pokemontcg.CardImageService;
@@ -29,8 +27,6 @@ public class ImageBackfillService {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(ImageBackfillService.class);
 	private static final String SOURCE = "POKEMON_TCG_API";
-	private static final Pattern COLLECTOR_NUMBER_PATTERN = Pattern.compile(
-			"(?i)(?:^|\\s|\\|)([a-z]*\\d+[a-z]*)\\s*(?:/\\s*([a-z]*\\d+[a-z]*))?");
 
 	private final ImageBackfillProperties properties;
 	private final ExecutorService executorService;
@@ -215,17 +211,10 @@ public class ImageBackfillService {
 				expansion.code());
 		update(snapshot -> snapshot.currentCard = blueprint.name());
 
-		Optional<String> collectorNumber = collectorNumber(blueprint.version()).map(ImageBackfillService::normalizeNumber);
-		if (collectorNumber.isEmpty()) {
-			update(snapshot -> {
-				snapshot.skippedWithoutCollectorNumber++;
-				snapshot.currentExpansionSkippedWithoutCollectorNumber++;
-				recordProcessedBlueprint(snapshot);
-			});
-			return;
-		}
-
-		ImageKey imageKey = new ImageKey(blueprint.id(), collectorNumber.get());
+		String imageCacheKey = CollectorNumberParser.fromVersion(blueprint.version())
+				.map(ImageBackfillService::normalizeNumber)
+				.orElse("__NO_COLLECTOR_NUMBER__");
+		ImageKey imageKey = new ImageKey(blueprint.id(), imageCacheKey);
 		if (existingImages.contains(imageKey)) {
 			update(this::recordProcessedBlueprint);
 			return;
@@ -371,26 +360,12 @@ public class ImageBackfillService {
 		snapshot.currentExpansionProcessedBlueprints++;
 	}
 
-	private static Optional<String> collectorNumber(String version) {
-		if (version == null || version.isBlank()) {
-			return Optional.empty();
-		}
-		Matcher matcher = COLLECTOR_NUMBER_PATTERN.matcher(version);
-		while (matcher.find()) {
-			String candidate = matcher.group(1);
-			if (candidate != null && !candidate.isBlank()) {
-				return Optional.of(candidate.toUpperCase(Locale.ROOT));
-			}
-		}
-		return Optional.empty();
-	}
-
 	private static String normalizeNumber(String value) {
 		if (value == null) {
 			return "";
 		}
-		String normalized = value.trim().toUpperCase(Locale.ROOT);
-		Matcher matcher = Pattern.compile("^([A-Z]*)(0*)(\\d+)([A-Z]*)$").matcher(normalized);
+		String normalized = value.trim().toUpperCase(java.util.Locale.ROOT);
+		java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("^([A-Z]*)(0*)(\\d+)([A-Z]*)$").matcher(normalized);
 		if (matcher.matches()) {
 			return matcher.group(1) + Integer.parseInt(matcher.group(3)) + matcher.group(4);
 		}

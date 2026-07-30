@@ -23,6 +23,8 @@ public class CatalogService {
 	static final long POKEMON_GAME_ID = 5L;
 	static final long POKEMON_SINGLES_CATEGORY_ID = 73L;
 	private static final Duration CACHE_TTL = Duration.ofHours(6);
+	private static final Pattern UNSUPPORTED_ALPHANUMERIC_COLLECTOR = Pattern.compile("(?i)\\b[a-z]+\\d+\\b");
+	private static final Pattern YEAR_AND_STAMP_VERSION = Pattern.compile("^\\s*\\d{4}\\s*\\|.+$");
 
 	private static final Comparator<CatalogExpansion> EXPANSION_ORDER = Comparator
 			.comparing(CatalogExpansion::name, String.CASE_INSENSITIVE_ORDER)
@@ -33,8 +35,6 @@ public class CatalogService {
 			.thenComparing(blueprint -> blueprint.version() == null ? "" : blueprint.version(),
 					String.CASE_INSENSITIVE_ORDER)
 			.thenComparingLong(CatalogBlueprint::id);
-	private static final Pattern COLLECTOR_NUMBER_PATTERN = Pattern.compile(
-			"(?i)(?:^|\\s|\\|)([a-z]*)(\\d+)([a-z]*)\\s*(?:/\\s*([a-z]*\\d+[a-z]*))?");
 
 	private final CardTraderClient cardTraderClient;
 	private final Map<Long, CacheEntry<List<CatalogBlueprint>>> blueprintCache = new HashMap<>();
@@ -74,7 +74,7 @@ public class CatalogService {
 
 		List<CatalogBlueprint> blueprints = cardTraderClient.getBlueprints(expansionId).stream()
 				.filter(blueprint -> isPokemonSinglesBlueprint(blueprint, expansionId))
-				.filter(blueprint -> hasNumericCollectorNumber(blueprint.version()))
+				.filter(blueprint -> hasSupportedCollectorIdentity(blueprint.version()))
 				.map(blueprint -> new CatalogBlueprint(
 						blueprint.id(),
 						CardNameNormalizer.withoutTrailingNumericLevel(blueprint.name()),
@@ -126,17 +126,14 @@ public class CatalogService {
 				&& blueprint.categoryId() == POKEMON_SINGLES_CATEGORY_ID;
 	}
 
-	private static boolean hasNumericCollectorNumber(String version) {
-		if (version == null || version.isBlank()) {
-			return false;
-		}
-		Matcher matcher = COLLECTOR_NUMBER_PATTERN.matcher(version);
-		while (matcher.find()) {
-			if (matcher.group(1).isEmpty() && matcher.group(3).isEmpty()) {
-				return true;
-			}
-		}
-		return false;
+	private static boolean hasSupportedCollectorIdentity(String version) {
+		if (version == null || version.isBlank()) return false;
+		if (CollectorNumberParser.fromVersion(version).isPresent()) return true;
+		// Some deck products use a release year and a stamp description rather than a card number.
+		// Keep them available for the safe name-only image fallback, while retaining the exclusion of
+		// true alphanumeric collector numbers such as MEW001.
+		return YEAR_AND_STAMP_VERSION.matcher(version).matches()
+				&& !UNSUPPORTED_ALPHANUMERIC_COLLECTOR.matcher(version).find();
 	}
 
 	private static CollectorNumberSortKey collectorNumberSortKey(CatalogBlueprint blueprint) {
@@ -144,20 +141,14 @@ public class CatalogService {
 		if (version == null || version.isBlank()) {
 			return CollectorNumberSortKey.noNumber();
 		}
-		Matcher matcher = COLLECTOR_NUMBER_PATTERN.matcher(version);
-		CollectorNumberSortKey bestMatch = CollectorNumberSortKey.noNumber();
-		while (matcher.find()) {
-			CollectorNumberSortKey candidate = new CollectorNumberSortKey(
-					false,
-					matcher.group(1).toUpperCase(),
-					Integer.parseInt(matcher.group(2)),
-					matcher.group(3).toUpperCase(),
-					matcher.group(4) == null ? "" : matcher.group(4).toUpperCase());
-			if (bestMatch.missing() || candidate.compareTo(bestMatch) < 0) {
-				bestMatch = candidate;
-			}
-		}
-		return bestMatch;
+		return CollectorNumberParser.fromVersion(version)
+				.map(number -> {
+					Matcher matcher = Pattern.compile("(?i)^(\\d+)([a-z]*)$").matcher(number);
+					if (!matcher.matches()) return CollectorNumberSortKey.noNumber();
+					return new CollectorNumberSortKey(false, "", Integer.parseInt(matcher.group(1)),
+							matcher.group(2).toUpperCase(), "");
+				})
+				.orElseGet(CollectorNumberSortKey::noNumber);
 	}
 
 	private static boolean isBlank(String value) {

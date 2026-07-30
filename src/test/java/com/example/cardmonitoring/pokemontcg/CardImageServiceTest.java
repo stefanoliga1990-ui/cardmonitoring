@@ -68,4 +68,43 @@ class CardImageServiceTest {
 		assertThat(image).isPresent();
 		assertThat(image.get().externalCardId()).isEqualTo("xy7-96");
 	}
+
+	@Test
+	void usesUniqueNameInsideMappedSetWhenVersionHasNoReliableCollectorNumber() {
+		CatalogCard card = new CatalogCard(2017, "Fire Energy", "2017 | Charizard Stamp 2", 2000,
+				"Battle Academy 2020", "ba-20");
+		PokemonTcgCardCandidate candidate = new PokemonTcgCardCandidate("sm1-167", "Fire Energy", "167", "sm1",
+				"Sun & Moon", null, 149, 173, null, "https://images.test/s.png", "https://images.test/l.png");
+		when(cardImageRepository.findByExpansionIdAndBlueprintIdAndCollectorNumberAndImageSource(
+				2000, 2017, "__NO_COLLECTOR_NUMBER__", "POKEMON_TCG_API")).thenReturn(Optional.empty());
+		when(pokemonTcgSetImageService.findCandidatesByName(card)).thenReturn(List.of(candidate));
+		when(cardImageRepository.saveAndFlush(any(StoredCardImage.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		Optional<CardImage> image = new CardImageService(pokemonTcgClient, pokemonTcgSetImageService, cardImageRepository)
+				.resolve(card);
+
+		assertThat(image).isPresent();
+		assertThat(image.get().externalCardId()).isEqualTo("sm1-167");
+		verify(pokemonTcgSetImageService).findCandidatesByName(card);
+	}
+
+	@Test
+	void usesGloballyUniqueNameOnlyAfterMappedSetFallbackFails() {
+		CatalogCard card = new CatalogCard(2018, "Uncommon Example", "2017 | Charizard Stamp 2", 2000,
+				"Battle Academy 2020", "ba-20");
+		PokemonTcgCardCandidate candidate = new PokemonTcgCardCandidate("sm1-168", "Uncommon Example", "168", "sm1",
+				"Sun & Moon", null, 149, 173, null, "https://images.test/s.png", "https://images.test/l.png");
+		when(cardImageRepository.findByExpansionIdAndBlueprintIdAndCollectorNumberAndImageSource(
+				2000, 2018, "__NO_COLLECTOR_NUMBER__", "POKEMON_TCG_API")).thenReturn(Optional.empty());
+		when(pokemonTcgSetImageService.findCandidatesByName(card)).thenReturn(List.of());
+		when(pokemonTcgClient.searchSingleCard("name:\"Uncommon Example\"")).thenReturn(Optional.of(candidate));
+		when(cardImageRepository.saveAndFlush(any(StoredCardImage.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		Optional<CardImage> image = new CardImageService(pokemonTcgClient, pokemonTcgSetImageService, cardImageRepository)
+				.resolve(card);
+
+		assertThat(image).isPresent();
+		assertThat(image.get().externalCardId()).isEqualTo("sm1-168");
+		verify(pokemonTcgClient).searchSingleCard("name:\"Uncommon Example\"");
+	}
 }

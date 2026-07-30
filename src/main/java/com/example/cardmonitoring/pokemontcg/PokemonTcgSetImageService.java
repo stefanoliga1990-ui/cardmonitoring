@@ -21,6 +21,7 @@ public class PokemonTcgSetImageService {
 	private final PokemonTcgClient client;
 	private final PokemonTcgSetMappingRepository mappings;
 	private final ConcurrentMap<String, List<PokemonTcgCardCandidate>> cardsBySetId = new ConcurrentHashMap<>();
+	private final ConcurrentMap<Long, String> resolvedSetIds = new ConcurrentHashMap<>();
 	private volatile List<PokemonTcgSetCandidate> sets;
 
 	public PokemonTcgSetImageService(PokemonTcgClient client, PokemonTcgSetMappingRepository mappings) {
@@ -34,13 +35,22 @@ public class PokemonTcgSetImageService {
 				.toList();
 	}
 
+	/** Uses the already cached mapped set, so this fallback never creates one request per card. */
+	public List<PokemonTcgCardCandidate> findCandidatesByName(CatalogCard card) {
+		return resolveSetId(card).map(this::cardsForSet).orElseGet(List::of).stream()
+				.filter(candidate -> equivalentCardNames(card.cardName(), candidate.name()))
+				.toList();
+	}
+
 	private List<PokemonTcgCardCandidate> cardsForSet(String setId) {
 		return cardsBySetId.computeIfAbsent(setId, client::getCardsForSet);
 	}
 
 	private Optional<String> resolveSetId(CatalogCard card) {
+		String cached = resolvedSetIds.get(card.expansionId());
+		if (cached != null) return Optional.of(cached);
 		Optional<PokemonTcgSetMapping> stored = mappings.findById(card.expansionId());
-		if (stored.isPresent()) return Optional.of(stored.get().getPokemonTcgSetId());
+		if (stored.isPresent()) return remember(card.expansionId(), stored.get().getPokemonTcgSetId());
 		List<PokemonTcgSetCandidate> available = availableSets();
 		PokemonTcgSetCandidate winner = available.stream()
 				.map(set -> new ScoredSet(set, score(card, set)))
@@ -49,7 +59,12 @@ public class PokemonTcgSetImageService {
 				.map(ScoredSet::set).orElse(null);
 		if (winner == null) return Optional.empty();
 		mappings.save(new PokemonTcgSetMapping(card.expansionId(), winner.id(), Instant.now()));
-		return Optional.of(winner.id());
+		return remember(card.expansionId(), winner.id());
+	}
+
+	private Optional<String> remember(long expansionId, String setId) {
+		resolvedSetIds.put(expansionId, setId);
+		return Optional.of(setId);
 	}
 
 	private List<PokemonTcgSetCandidate> availableSets() {
@@ -74,6 +89,15 @@ public class PokemonTcgSetImageService {
 	}
 	private static String normalize(String value) {
 		return value == null ? "" : value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "");
+	}
+	private static boolean equivalentCardNames(String left, String right) {
+		return canonicalCardName(left).equals(canonicalCardName(right));
+	}
+	private static String canonicalCardName(String value) {
+		String normalized = value == null ? "" : value.toLowerCase(Locale.ROOT)
+				.replaceAll("[^a-z0-9]+", " ").replaceAll("\\s+", " ").trim();
+		if (normalized.startsWith("m ")) normalized = normalized.substring(2);
+		return normalized.replaceAll(" ex$", "").trim();
 	}
 	private record ScoredSet(PokemonTcgSetCandidate set, int score) { }
 }

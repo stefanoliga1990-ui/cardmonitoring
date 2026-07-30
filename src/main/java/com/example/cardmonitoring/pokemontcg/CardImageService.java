@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import com.example.cardmonitoring.catalog.CatalogCard;
+import com.example.cardmonitoring.catalog.CollectorNumberParser;
 
 @Service
 public class CardImageService {
@@ -22,9 +23,8 @@ public class CardImageService {
 	private static final Logger LOGGER = LoggerFactory.getLogger(CardImageService.class);
 	private static final String SOURCE = "POKEMON_TCG_API";
 	private static final Duration IMAGE_URL_MAXIMUM_AGE = Duration.ofDays(120);
-	private static final Pattern COLLECTOR_NUMBER_PATTERN = Pattern.compile(
-			"(?i)(?:^|\\s|\\|)([a-z]*\\d+[a-z]*)\\s*(?:/\\s*([a-z]*\\d+[a-z]*))?");
 	private static final Pattern TRAILING_EX = Pattern.compile("(?i)\\s+ex\\s*$");
+	private static final String NO_COLLECTOR_NUMBER_CACHE_KEY = "__NO_COLLECTOR_NUMBER__";
 
 	private final PokemonTcgClient pokemonTcgClient;
 	private final PokemonTcgSetImageService pokemonTcgSetImageService;
@@ -41,24 +41,23 @@ public class CardImageService {
 		LOGGER.info(
 				"Starting card image lookup: blueprintId={}, expansionId={}, cardName='{}', cardVersion='{}', expansionName='{}'",
 				card.blueprintId(), card.expansionId(), card.cardName(), card.cardVersion(), card.expansionName());
-		String collectorNumber = collectorNumber(card.cardVersion()).orElse(null);
+		String collectorNumber = CollectorNumberParser.fromVersion(card.cardVersion()).orElse(null);
+		String cacheKey = collectorNumber == null ? NO_COLLECTOR_NUMBER_CACHE_KEY : collectorNumber;
 		if (collectorNumber == null) {
-			LOGGER.info(
-					"Card image lookup skipped: collector number not found in version. blueprintId={}, cardVersion='{}'",
+			LOGGER.info("Card image lookup has no reliable collector number; using name-only fallbacks: blueprintId={}, cardVersion='{}'",
 					card.blueprintId(), card.cardVersion());
-			return Optional.empty();
 		}
 
 		Instant now = Instant.now();
-		Optional<StoredCardImage> storedImage = findStoredImage(card, collectorNumber);
+		Optional<StoredCardImage> storedImage = findStoredImage(card, cacheKey);
 		if (storedImage.isPresent()) {
-			return resolveStoredImage(card, collectorNumber, storedImage.get(), now);
+			return resolveStoredImage(card, cacheKey, collectorNumber, storedImage.get(), now);
 		}
 
 		LOGGER.info("Card image persistent cache miss: blueprintId={}, expansionId={}, collectorNumber={}",
-				card.blueprintId(), card.expansionId(), collectorNumber);
+				card.blueprintId(), card.expansionId(), cacheKey);
 		Optional<CardImage> resolvedImage = resolveFromPokemonTcg(card, collectorNumber, null);
-		return resolvedImage.map(image -> saveNewImage(card, collectorNumber, image, now));
+		return resolvedImage.map(image -> saveNewImage(card, cacheKey, image, now));
 	}
 
 	public Optional<CardImage> cacheResolvedImage(CatalogCard card, String collectorNumber, CardImage image) {
@@ -87,6 +86,7 @@ public class CardImageService {
 
 	private Optional<CardImage> resolveStoredImage(
 			CatalogCard card,
+			String cacheKey,
 			String collectorNumber,
 			StoredCardImage storedImage,
 			Instant now) {
@@ -95,22 +95,22 @@ public class CardImageService {
 			cardImageRepository.save(storedImage);
 			LOGGER.info(
 					"Card image persistent cache hit: blueprintId={}, expansionId={}, collectorNumber={}, imageSource={}, lastVerifiedAt={}",
-					card.blueprintId(), card.expansionId(), collectorNumber, storedImage.getImageSource(),
+				card.blueprintId(), card.expansionId(), cacheKey, storedImage.getImageSource(),
 					storedImage.getLastVerifiedAt());
 			return Optional.of(storedImage.toCardImage());
 		}
 
 		LOGGER.info(
 				"Card image persistent cache entry requires refresh: id={}, blueprintId={}, expansionId={}, collectorNumber={}, status={}, lastVerifiedAt={}, failures={}",
-				storedImage.getId(), card.blueprintId(), card.expansionId(), collectorNumber, storedImage.getStatus(),
+			storedImage.getId(), card.blueprintId(), card.expansionId(), cacheKey, storedImage.getStatus(),
 				storedImage.getLastVerifiedAt(), storedImage.getVerificationFailures());
 		Optional<CardImage> refreshedImage = resolveFromPokemonTcg(card, collectorNumber, storedImage.getExternalCardId());
 		if (refreshedImage.isPresent()) {
-			storedImage.refresh(card, collectorNumber, refreshedImage.get(), now);
+			storedImage.refresh(card, cacheKey, refreshedImage.get(), now);
 			cardImageRepository.save(storedImage);
 			LOGGER.info(
 					"Card image persistent cache refreshed: id={}, blueprintId={}, expansionId={}, collectorNumber={}, imageSource={}",
-					storedImage.getId(), card.blueprintId(), card.expansionId(), collectorNumber,
+				storedImage.getId(), card.blueprintId(), card.expansionId(), cacheKey,
 					refreshedImage.get().source());
 			return refreshedImage;
 		}
@@ -120,7 +120,7 @@ public class CardImageService {
 		if (storedImage.hasImage()) {
 			LOGGER.info(
 					"Card image refresh failed, using stored stale image: id={}, blueprintId={}, expansionId={}, collectorNumber={}, status={}",
-					storedImage.getId(), card.blueprintId(), card.expansionId(), collectorNumber,
+				storedImage.getId(), card.blueprintId(), card.expansionId(), cacheKey,
 					storedImage.getStatus());
 			return Optional.of(storedImage.toCardImage());
 		}
@@ -143,7 +143,7 @@ public class CardImageService {
 			String externalCardId) {
 		if (StringUtils.hasText(externalCardId)) {
 			Optional<PokemonTcgCardCandidate> cardById = pokemonTcgClient.findCardById(externalCardId);
-			if (cardById.isPresent() && numberMatches(collectorNumber, cardById.get().number())) {
+			if (cardById.isPresent() && (collectorNumber == null || numberMatches(collectorNumber, cardById.get().number()))) {
 				PokemonTcgCardCandidate candidate = cardById.get();
 				LOGGER.info(
 						"Selected Pokemon TCG image by external id: blueprintId={}, candidateId={}, candidateName='{}', candidateNumber={}, candidateSet='{}', hasSmallImage={}, hasLargeImage={}",
@@ -155,58 +155,73 @@ public class CardImageService {
 					"Pokemon TCG external id refresh did not return a compatible image, falling back to search: blueprintId={}, externalCardId={}, collectorNumber={}",
 					card.blueprintId(), externalCardId, collectorNumber);
 		}
-		List<PokemonTcgCardCandidate> setCandidates = pokemonTcgSetImageService.findCandidates(card, collectorNumber);
-		if (setCandidates.size() == 1) {
-			PokemonTcgCardCandidate candidate = setCandidates.get(0);
-			LOGGER.info("Selected Pokemon TCG image by mapped set and number: blueprintId={}, candidateId={}, set='{}', number={}",
+		if (collectorNumber != null) {
+			List<PokemonTcgCardCandidate> setCandidates = pokemonTcgSetImageService.findCandidates(card, collectorNumber);
+			if (setCandidates.size() == 1) {
+				PokemonTcgCardCandidate candidate = setCandidates.get(0);
+				LOGGER.info("Selected Pokemon TCG image by mapped set and number: blueprintId={}, candidateId={}, set='{}', number={}",
+						card.blueprintId(), candidate.id(), candidate.setName(), candidate.number());
+				return Optional.of(toCardImage(candidate));
+			}
+			if (setCandidates.size() > 1) {
+				Optional<PokemonTcgCardCandidate> selectedSetCandidate = uniqueNameMatch(card, setCandidates);
+				if (selectedSetCandidate.isPresent()) return Optional.of(toCardImage(selectedSetCandidate.get()));
+				LOGGER.info("Mapped Pokemon TCG set has ambiguous collector number; falling back to name search: blueprintId={}, candidates={}",
+						card.blueprintId(), setCandidates.size());
+			}
+		}
+
+		List<PokemonTcgCardCandidate> sameSetNameCandidates = pokemonTcgSetImageService.findCandidatesByName(card);
+		Optional<PokemonTcgCardCandidate> sameSetNameCandidate = uniqueImageCandidate(sameSetNameCandidates);
+		if (sameSetNameCandidate.isPresent()) {
+			PokemonTcgCardCandidate candidate = sameSetNameCandidate.get();
+			LOGGER.info("Selected Pokemon TCG image by mapped set and unique name: blueprintId={}, candidateId={}, set='{}', number={}",
 					card.blueprintId(), candidate.id(), candidate.setName(), candidate.number());
 			return Optional.of(toCardImage(candidate));
 		}
-		if (setCandidates.size() > 1) {
-			Optional<PokemonTcgCardCandidate> selectedSetCandidate = uniqueNameMatch(card, setCandidates);
-			if (selectedSetCandidate.isPresent()) return Optional.of(toCardImage(selectedSetCandidate.get()));
-			LOGGER.info("Mapped Pokemon TCG set has ambiguous collector number; falling back to name search: blueprintId={}, candidates={}",
-					card.blueprintId(), setCandidates.size());
-		}
 
-		String query = query(card.cardName(), collectorNumber);
-		LOGGER.info("Searching Pokemon TCG image candidates: blueprintId={}, collectorNumber={}, query={}",
-				card.blueprintId(), collectorNumber, query);
-		List<PokemonTcgCardCandidate> candidates = pokemonTcgClient.searchCards(query);
-		if (candidates.isEmpty()) {
-			String hyphenatedExName = hyphenatedExName(card.cardName());
-			if (hyphenatedExName != null) {
-				String fallbackQuery = query(hyphenatedExName, collectorNumber);
-				LOGGER.info(
-						"Pokemon TCG image search returned no candidates; retrying with hyphenated EX name: blueprintId={}, collectorNumber={}, query={}",
-						card.blueprintId(), collectorNumber, fallbackQuery);
-				candidates = pokemonTcgClient.searchCards(fallbackQuery);
+		if (collectorNumber != null) {
+			String query = query(card.cardName(), collectorNumber);
+			LOGGER.info("Searching Pokemon TCG image candidates: blueprintId={}, collectorNumber={}, query={}",
+					card.blueprintId(), collectorNumber, query);
+			List<PokemonTcgCardCandidate> candidates = pokemonTcgClient.searchCards(query);
+			if (candidates.isEmpty()) {
+				String hyphenatedExName = hyphenatedExName(card.cardName());
+				if (hyphenatedExName != null) {
+					String fallbackQuery = query(hyphenatedExName, collectorNumber);
+					LOGGER.info("Pokemon TCG image search returned no candidates; retrying with hyphenated EX name: blueprintId={}, collectorNumber={}, query={}",
+							card.blueprintId(), collectorNumber, fallbackQuery);
+					candidates = pokemonTcgClient.searchCards(fallbackQuery);
+				}
+			}
+			LOGGER.info("Pokemon TCG returned {} image candidate(s): blueprintId={}, collectorNumber={}",
+					candidates.size(), card.blueprintId(), collectorNumber);
+			Optional<PokemonTcgCardCandidate> selected = candidates.stream()
+					.filter(candidate -> numberMatches(collectorNumber, candidate.number()))
+					.min(Comparator
+							.comparingInt((PokemonTcgCardCandidate candidate) -> matchScore(card, collectorNumber, candidate))
+							.reversed()
+							.thenComparing(PokemonTcgCardCandidate::id));
+			if (selected.isPresent()) {
+				PokemonTcgCardCandidate candidate = selected.get();
+				LOGGER.info("Selected Pokemon TCG image: blueprintId={}, candidateId={}, candidateName='{}', candidateNumber={}, candidateSet='{}'",
+						card.blueprintId(), candidate.id(), candidate.name(), candidate.number(), candidate.setName());
+				return Optional.of(toCardImage(candidate));
 			}
 		}
-		LOGGER.info("Pokemon TCG returned {} image candidate(s): blueprintId={}, collectorNumber={}",
-				candidates.size(), card.blueprintId(), collectorNumber);
-		candidates.forEach(candidate -> LOGGER.debug(
-				"Pokemon TCG candidate: blueprintId={}, candidateId={}, name='{}', number={}, setName='{}', score={}, hasSmallImage={}, hasLargeImage={}",
-				card.blueprintId(), candidate.id(), candidate.name(), candidate.number(), candidate.setName(),
-				matchScore(card, collectorNumber, candidate), candidate.smallImageUrl() != null,
-				candidate.largeImageUrl() != null));
-		Optional<PokemonTcgCardCandidate> selected = candidates.stream()
-				.filter(candidate -> numberMatches(collectorNumber, candidate.number()))
-				.min(Comparator
-						.comparingInt((PokemonTcgCardCandidate candidate) -> matchScore(card, collectorNumber, candidate))
-						.reversed()
-						.thenComparing(PokemonTcgCardCandidate::id));
-		if (selected.isEmpty()) {
-			LOGGER.info("No Pokemon TCG image selected: blueprintId={}, collectorNumber={}, candidateCount={}",
-					card.blueprintId(), collectorNumber, candidates.size());
-			return Optional.empty();
+
+		Optional<PokemonTcgCardCandidate> globalNameCandidate = pokemonTcgClient.searchSingleCard(nameQuery(card.cardName()))
+				.filter(candidate -> equivalentCardNames(card.cardName(), candidate.name()))
+				.filter(CardImageService::hasImage);
+		if (globalNameCandidate.isPresent()) {
+			PokemonTcgCardCandidate candidate = globalNameCandidate.get();
+			LOGGER.info("Selected Pokemon TCG image by globally unique name: blueprintId={}, candidateId={}, set='{}', number={}",
+					card.blueprintId(), candidate.id(), candidate.setName(), candidate.number());
+			return Optional.of(toCardImage(candidate));
 		}
-		PokemonTcgCardCandidate candidate = selected.get();
-		LOGGER.info(
-				"Selected Pokemon TCG image: blueprintId={}, candidateId={}, candidateName='{}', candidateNumber={}, candidateSet='{}', hasSmallImage={}, hasLargeImage={}",
-				card.blueprintId(), candidate.id(), candidate.name(), candidate.number(), candidate.setName(),
-				candidate.smallImageUrl() != null, candidate.largeImageUrl() != null);
-		return Optional.of(toCardImage(candidate));
+		LOGGER.info("No Pokemon TCG image selected after number and name fallbacks: blueprintId={}, collectorNumber={}",
+				card.blueprintId(), collectorNumber);
+		return Optional.empty();
 	}
 
 	private CardImage saveNewImage(CatalogCard card, String collectorNumber, CardImage image, Instant now) {
@@ -244,6 +259,19 @@ public class CardImageService {
 		return "name:" + quoted(cardName) + " number:" + normalizeSearchNumber(collectorNumber);
 	}
 
+	private static String nameQuery(String cardName) {
+		return "name:" + quoted(cardName);
+	}
+
+	private static Optional<PokemonTcgCardCandidate> uniqueImageCandidate(List<PokemonTcgCardCandidate> candidates) {
+		List<PokemonTcgCardCandidate> withImages = candidates.stream().filter(CardImageService::hasImage).toList();
+		return withImages.size() == 1 ? Optional.of(withImages.get(0)) : Optional.empty();
+	}
+
+	private static boolean hasImage(PokemonTcgCardCandidate candidate) {
+		return candidate.smallImageUrl() != null || candidate.largeImageUrl() != null;
+	}
+
 	private static String hyphenatedExName(String cardName) {
 		if (!StringUtils.hasText(cardName) || !TRAILING_EX.matcher(cardName).find()) {
 			return null;
@@ -271,20 +299,6 @@ public class CardImageService {
 			score += 20;
 		}
 		return score;
-	}
-
-	private static Optional<String> collectorNumber(String version) {
-		if (version == null || version.isBlank()) {
-			return Optional.empty();
-		}
-		Matcher matcher = COLLECTOR_NUMBER_PATTERN.matcher(version);
-		while (matcher.find()) {
-			String candidate = matcher.group(1);
-			if (candidate != null && !candidate.isBlank()) {
-				return Optional.of(candidate.toUpperCase());
-			}
-		}
-		return Optional.empty();
 	}
 
 	private static boolean numberMatches(String expected, String actual) {

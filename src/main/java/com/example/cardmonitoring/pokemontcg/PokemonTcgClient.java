@@ -81,6 +81,19 @@ public class PokemonTcgClient {
 		return List.of();
 	}
 
+	/**
+	 * Returns a result only when the API confirms that the query identifies exactly one card.
+	 * This is deliberately used for the last-resort name-only lookup, where choosing a wrong
+	 * image would be worse than leaving the placeholder visible.
+	 */
+	public Optional<PokemonTcgCardCandidate> searchSingleCard(String query) {
+		if (!StringUtils.hasText(query)) return Optional.empty();
+		PokemonTcgCardPage page = getCardsPage(query, 1, 2);
+		return page.totalCount() == 1 && page.cards().size() == 1
+				? Optional.of(page.cards().get(0))
+				: Optional.empty();
+	}
+
 	public PokemonTcgCardPage getCardsPage(int page, int pageSize) {
 		return getCardsPage(null, page, pageSize);
 	}

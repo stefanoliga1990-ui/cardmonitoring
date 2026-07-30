@@ -1603,25 +1603,6 @@
     function renderCollectionSyncStatus(detail) {
         elements.collectionSyncStatus.replaceChildren();
         elements.collectionSyncStatus.classList.remove("is-loading", "is-warning");
-        elements.collectionSyncStatus.hidden = false;
-
-        if (detail.imageSyncStatus === "RUNNING" || detail.imageSyncStatus === "NOT_STARTED") {
-            elements.collectionSyncStatus.classList.add("is-loading");
-            elements.collectionSyncStatus.append(
-                createElement("span", "collection-sync-spinner"),
-                createElement("strong", "", "Sincronizzazione immagini in corso")
-            );
-            return;
-        }
-
-        if (detail.imageSyncStatus === "PARTIAL_FAILED") {
-            elements.collectionSyncStatus.classList.add("is-warning");
-            elements.collectionSyncStatus.textContent = detail.lastError
-                ? `Sincronizzazione immagini completata parzialmente - ${detail.lastError}`
-                : "Sincronizzazione immagini completata parzialmente";
-            return;
-        }
-
         elements.collectionSyncStatus.hidden = true;
     }
 
@@ -1692,14 +1673,6 @@
 
     function scheduleCollectionPolling(detail) {
         stopCollectionPolling();
-        if (!["NOT_STARTED", "RUNNING"].includes(detail.imageSyncStatus)) {
-            return;
-        }
-        collectionsState.pollTimer = window.setTimeout(async () => {
-            if (!elements.collectionsView.hidden && collectionsState.selectedId !== null) {
-                await loadCollectionDetail(collectionsState.selectedId);
-            }
-        }, 5000);
     }
 
     function stopCollectionPolling() {
