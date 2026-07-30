@@ -140,12 +140,12 @@ class CardImageServiceTest {
 				"Ascended Heroes", null, 217, 217, null, "https://images.test/right-s.png", "https://images.test/right-l.png");
 		TcgCollectorReferenceCatalogService.ReferenceCardMatch reference =
 				new TcgCollectorReferenceCatalogService.ReferenceCardMatch(
-						"Ascended Heroes", "Boss's Orders", "256",
+						42L, "Ascended Heroes", "Boss's Orders", "256",
 						TcgCollectorReferenceCatalogService.MatchConfidence.UNIQUE_NAME);
 		when(cardImageRepository.findByExpansionIdAndBlueprintIdAndCollectorNumberAndImageSource(
 				3000, 255, "255", "POKEMON_TCG_API")).thenReturn(Optional.empty());
 		when(referenceCatalogService.findMatch(card)).thenReturn(Optional.of(reference));
-		when(pokemonTcgSetImageService.findCandidates(card, "256")).thenReturn(List.of(candidate));
+		when(pokemonTcgSetImageService.findCandidates(card, "256", Optional.of(reference))).thenReturn(List.of(candidate));
 		when(cardImageRepository.saveAndFlush(any(StoredCardImage.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		Optional<CardImage> image = new CardImageService(
@@ -153,6 +153,6 @@ class CardImageServiceTest {
 
 		assertThat(image).isPresent();
 		assertThat(image.get().externalCardId()).isEqualTo("asc-256");
-		verify(pokemonTcgSetImageService).findCandidates(card, "256");
+		verify(pokemonTcgSetImageService).findCandidates(card, "256", Optional.of(reference));
 	}
 }

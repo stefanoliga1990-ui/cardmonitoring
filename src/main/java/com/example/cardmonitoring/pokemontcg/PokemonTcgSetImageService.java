@@ -20,17 +20,29 @@ public class PokemonTcgSetImageService {
 	private static final Pattern NUMBER = Pattern.compile("^([A-Z]*)(0*)(\\d+)([A-Z]*)$");
 	private final PokemonTcgClient client;
 	private final PokemonTcgSetMappingRepository mappings;
+	private final TcgReferencePokemonSetMappingService referenceSetMappings;
 	private final ConcurrentMap<String, List<PokemonTcgCardCandidate>> cardsBySetId = new ConcurrentHashMap<>();
 	private final ConcurrentMap<Long, String> resolvedSetIds = new ConcurrentHashMap<>();
 	private volatile List<PokemonTcgSetCandidate> sets;
 
-	public PokemonTcgSetImageService(PokemonTcgClient client, PokemonTcgSetMappingRepository mappings) {
+	public PokemonTcgSetImageService(
+			PokemonTcgClient client,
+			PokemonTcgSetMappingRepository mappings,
+			TcgReferencePokemonSetMappingService referenceSetMappings) {
 		this.client = client;
 		this.mappings = mappings;
+		this.referenceSetMappings = referenceSetMappings;
 	}
 
 	public List<PokemonTcgCardCandidate> findCandidates(CatalogCard card, String collectorNumber) {
-		return resolveSetId(card).map(this::cardsForSet).orElseGet(List::of).stream()
+		return findCandidates(card, collectorNumber, Optional.empty());
+	}
+
+	public List<PokemonTcgCardCandidate> findCandidates(
+			CatalogCard card,
+			String collectorNumber,
+			Optional<TcgCollectorReferenceCatalogService.ReferenceCardMatch> referenceMatch) {
+		return resolveSetId(card, referenceMatch).map(this::cardsForSet).orElseGet(List::of).stream()
 				.filter(candidate -> normalizeNumber(collectorNumber).equals(normalizeNumber(candidate.number())))
 				.toList();
 	}
@@ -42,7 +54,14 @@ public class PokemonTcgSetImageService {
 
 	/** Uses a reference-catalog name while keeping the CardTrader expansion mapping. */
 	public List<PokemonTcgCardCandidate> findCandidatesByName(CatalogCard card, String cardName) {
-		return resolveSetId(card).map(this::cardsForSet).orElseGet(List::of).stream()
+		return findCandidatesByName(card, cardName, Optional.empty());
+	}
+
+	public List<PokemonTcgCardCandidate> findCandidatesByName(
+			CatalogCard card,
+			String cardName,
+			Optional<TcgCollectorReferenceCatalogService.ReferenceCardMatch> referenceMatch) {
+		return resolveSetId(card, referenceMatch).map(this::cardsForSet).orElseGet(List::of).stream()
 				.filter(candidate -> namesCompatible(cardName, candidate.name()))
 				.toList();
 	}
@@ -58,8 +77,17 @@ public class PokemonTcgSetImageService {
 	/** Validates the cached API card against a reference identity when one is available. */
 	public Optional<Boolean> isStoredImageCompatible(
 			CatalogCard card, String externalCardId, String expectedName, String expectedCollectorNumber) {
+		return isStoredImageCompatible(card, externalCardId, expectedName, expectedCollectorNumber, Optional.empty());
+	}
+
+	public Optional<Boolean> isStoredImageCompatible(
+			CatalogCard card,
+			String externalCardId,
+			String expectedName,
+			String expectedCollectorNumber,
+			Optional<TcgCollectorReferenceCatalogService.ReferenceCardMatch> referenceMatch) {
 		if (externalCardId == null || externalCardId.isBlank()) return Optional.empty();
-		return resolveSetId(card)
+		return resolveSetId(card, referenceMatch)
 				.map(this::cardsForSet)
 				.flatMap(cards -> cards.stream().filter(candidate -> externalCardId.equals(candidate.id())).findFirst())
 				.map(candidate -> (expectedCollectorNumber == null
@@ -67,11 +95,19 @@ public class PokemonTcgSetImageService {
 						&& namesCompatible(expectedName, candidate.name()));
 	}
 
+	public boolean hasResolvableSet(
+			CatalogCard card,
+			Optional<TcgCollectorReferenceCatalogService.ReferenceCardMatch> referenceMatch) {
+		return resolveSetId(card, referenceMatch).isPresent();
+	}
+
 	private List<PokemonTcgCardCandidate> cardsForSet(String setId) {
 		return cardsBySetId.computeIfAbsent(setId, client::getCardsForSet);
 	}
 
-	private Optional<String> resolveSetId(CatalogCard card) {
+	private Optional<String> resolveSetId(
+			CatalogCard card,
+			Optional<TcgCollectorReferenceCatalogService.ReferenceCardMatch> referenceMatch) {
 		String cached = resolvedSetIds.get(card.expansionId());
 		if (cached != null) return Optional.of(cached);
 		Optional<PokemonTcgSetMapping> stored = mappings.findById(card.expansionId());
@@ -82,9 +118,12 @@ public class PokemonTcgSetImageService {
 				.filter(scored -> scored.score >= 300)
 				.max(Comparator.comparingInt(ScoredSet::score))
 				.map(ScoredSet::set).orElse(null);
-		if (winner == null) return Optional.empty();
-		mappings.save(new PokemonTcgSetMapping(card.expansionId(), winner.id(), Instant.now()));
-		return remember(card.expansionId(), winner.id());
+		if (winner != null) {
+			mappings.save(new PokemonTcgSetMapping(card.expansionId(), winner.id(), Instant.now()));
+			return remember(card.expansionId(), winner.id());
+		}
+		return referenceMatch.flatMap(match -> referenceSetMappings.resolve(card, match))
+				.flatMap(setId -> remember(card.expansionId(), setId));
 	}
 
 	private Optional<String> remember(long expansionId, String setId) {

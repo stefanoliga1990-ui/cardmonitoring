@@ -17,6 +17,7 @@ import com.example.cardmonitoring.catalog.CatalogExpansion;
 import com.example.cardmonitoring.catalog.CatalogService;
 import com.example.cardmonitoring.catalog.CollectorNumberParser;
 import com.example.cardmonitoring.pokemontcg.CardImage;
+import com.example.cardmonitoring.pokemontcg.CardImageMissReason;
 import com.example.cardmonitoring.pokemontcg.CardImageRepository;
 import com.example.cardmonitoring.pokemontcg.CardImageService;
 import com.example.cardmonitoring.pokemontcg.StoredCardImage;
@@ -241,6 +242,7 @@ public class ImageBackfillService {
 			update(snapshot -> {
 				snapshot.skippedWithoutPokemonCandidate++;
 				snapshot.currentExpansionNotFound++;
+				recordMissReason(snapshot, cardImageService.diagnoseMiss(card));
 				recordProcessedBlueprint(snapshot);
 			});
 		}
@@ -368,6 +370,14 @@ public class ImageBackfillService {
 		snapshot.currentExpansionProcessedBlueprints++;
 	}
 
+	private static void recordMissReason(MutableStatus snapshot, CardImageMissReason reason) {
+		switch (reason) {
+			case REFERENCE_CARD_NOT_FOUND -> snapshot.skippedWithoutReferenceCard++;
+			case POKEMON_SET_NOT_MAPPED -> snapshot.skippedWithoutPokemonSetMapping++;
+			case POKEMON_CARD_NOT_FOUND -> snapshot.skippedWithoutPokemonCard++;
+		}
+	}
+
 	private static String normalizeNumber(String value) {
 		if (value == null) {
 			return "";
@@ -431,6 +441,9 @@ public class ImageBackfillService {
 		private int skippedWithoutCollectorNumber;
 		private int skippedWithoutPokemonCandidate;
 		private int skippedWithoutReliableMatch;
+		private int skippedWithoutReferenceCard;
+		private int skippedWithoutPokemonSetMapping;
+		private int skippedWithoutPokemonCard;
 		private int errors;
 		private String currentExpansion;
 		private String currentCard;
@@ -476,6 +489,9 @@ public class ImageBackfillService {
 					skippedWithoutCollectorNumber,
 					skippedWithoutPokemonCandidate,
 					skippedWithoutReliableMatch,
+					skippedWithoutReferenceCard,
+					skippedWithoutPokemonSetMapping,
+					skippedWithoutPokemonCard,
 					errors,
 					currentExpansion,
 					currentCard,

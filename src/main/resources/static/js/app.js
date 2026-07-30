@@ -289,9 +289,10 @@
         imageBackfillAlreadyPresentImages: document.querySelector("#imageBackfillAlreadyPresentImages"),
         imageBackfillCurrentSet: document.querySelector("#imageBackfillCurrentSet"),
         imageBackfillCurrentBlueprints: document.querySelector("#imageBackfillCurrentBlueprints"),
-        imageBackfillCurrentImages: document.querySelector("#imageBackfillCurrentImages"),
-        imageBackfillSkippedImages: document.querySelector("#imageBackfillSkippedImages"),
-        imageBackfillErrors: document.querySelector("#imageBackfillErrors"),
+          imageBackfillCurrentImages: document.querySelector("#imageBackfillCurrentImages"),
+          imageBackfillSkippedImages: document.querySelector("#imageBackfillSkippedImages"),
+		  imageBackfillSkipReason: document.querySelector("#imageBackfillSkipReason"),
+          imageBackfillErrors: document.querySelector("#imageBackfillErrors"),
         imageBackfillStart: document.querySelector("#imageBackfillStartButton"),
         imageBackfillStop: document.querySelector("#imageBackfillStopButton"),
         imageBackfillExpansionResults: document.querySelector("#imageBackfillExpansionResults"),
@@ -2636,9 +2637,10 @@
         elements.imageBackfillAlreadyPresentImages.textContent = formatInteger(status.alreadyPresentImages || 0);
         elements.imageBackfillCurrentSet.textContent = status.currentExpansion || "—";
         elements.imageBackfillCurrentBlueprints.textContent = `${formatInteger(currentProcessed)} / ${formatInteger(currentTotal)}`;
-        elements.imageBackfillCurrentImages.textContent = formatInteger(currentExisting + currentSaved);
-        elements.imageBackfillSkippedImages.textContent = formatInteger(skipped);
-        elements.imageBackfillErrors.textContent = formatInteger(status.errors || 0);
+          elements.imageBackfillCurrentImages.textContent = formatInteger(currentExisting + currentSaved);
+          elements.imageBackfillSkippedImages.textContent = formatInteger(skipped);
+		  elements.imageBackfillSkipReason.textContent = imageBackfillSkipReason(status);
+          elements.imageBackfillErrors.textContent = formatInteger(status.errors || 0);
         renderImageBackfillExpansionResults(status.expansionResults || []);
 
         const running = status.state === "RUNNING";
@@ -2753,14 +2755,24 @@
         elements.imageBackfillStatus.classList.toggle("is-error", type === "error");
     }
 
-    function setImageBackfillCollapsedStatus(message, type) {
-        elements.imageBackfillCollapsedStatus.textContent = message;
-        elements.imageBackfillCollapsedStatus.classList.toggle("is-linked", type === "linked");
-        elements.imageBackfillCollapsedStatus.classList.toggle("is-error", type === "error");
-        elements.imageBackfillCollapsedStatus.classList.toggle("is-running", type === "running");
-    }
+      function setImageBackfillCollapsedStatus(message, type) {
+          elements.imageBackfillCollapsedStatus.textContent = message;
+          elements.imageBackfillCollapsedStatus.classList.toggle("is-linked", type === "linked");
+          elements.imageBackfillCollapsedStatus.classList.toggle("is-error", type === "error");
+          elements.imageBackfillCollapsedStatus.classList.toggle("is-running", type === "running");
+      }
 
-    function imageBackfillStateLabel(state) {
+	  function imageBackfillSkipReason(status) {
+		  const reasons = [
+			  [Number(status.skippedWithoutReferenceCard || 0), "carta TCG non trovata"],
+			  [Number(status.skippedWithoutPokemonSetMapping || 0), "set Pokémon TCG non mappato"],
+			  [Number(status.skippedWithoutPokemonCard || 0), "carta Pokémon TCG assente o ambigua"]
+		  ];
+		  const winner = reasons.reduce((current, candidate) => candidate[0] > current[0] ? candidate : current, [0, "—"]);
+		  return winner[0] > 0 ? `${winner[1]} (${formatInteger(winner[0])})` : "—";
+	  }
+
+      function imageBackfillStateLabel(state) {
         if (state === "RUNNING") {
             return "In corso";
         }

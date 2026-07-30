@@ -104,6 +104,14 @@ public class TcgCollectorReferenceCatalogService implements ApplicationRunner {
 		return Optional.empty();
 	}
 
+	/** Returns the imported cards of a reference set for its one-time Pokemon TCG API mapping. */
+	public List<ReferenceCardIdentity> findCards(long referenceSetId) {
+		if (referenceSetId <= 0) return List.of();
+		return cardRepository.findByReferenceSetId(referenceSetId).stream()
+				.map(card -> new ReferenceCardIdentity(card.getSourceName(), card.getNormalizedCollectorNumber()))
+				.toList();
+	}
+
 	@Transactional
 	public synchronized void importCatalogIfNeeded() {
 		CatalogFile catalogFile = readCatalogFile();
@@ -212,7 +220,7 @@ public class TcgCollectorReferenceCatalogService implements ApplicationRunner {
 			TcgCollectorReferenceSet referenceSet,
 			TcgCollectorReferenceCard referenceCard,
 			MatchConfidence confidence) {
-		return new ReferenceCardMatch(referenceSet.getSourceName(), referenceCard.getSourceName(),
+		return new ReferenceCardMatch(referenceSet.getId(), referenceSet.getSourceName(), referenceCard.getSourceName(),
 				referenceCard.getNormalizedCollectorNumber(), confidence);
 	}
 
@@ -276,10 +284,14 @@ public class TcgCollectorReferenceCatalogService implements ApplicationRunner {
 	}
 
 	public record ReferenceCardMatch(
+			long referenceSetId,
 			String referenceSetName,
 			String cardName,
 			String normalizedCollectorNumber,
 			MatchConfidence confidence) {
+	}
+
+	public record ReferenceCardIdentity(String cardName, String normalizedCollectorNumber) {
 	}
 
 	private record CatalogFile(List<SourceSet> sets, String digest) {
