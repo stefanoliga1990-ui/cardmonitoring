@@ -24,4 +24,10 @@ class OfficialPokemonSetCatalogTest {
 	void excludesKnownCardTraderExpansionWithoutPokemonSingles() {
 		assertThat(OfficialPokemonSetCatalog.includes("30th Celebration", "30c")).isFalse();
 	}
+
+	@Test
+	void excludesTrainerKitSetsEvenWhenTheirCardTraderCodeIsAnAlias() {
+		assertThat(OfficialPokemonSetCatalog.includes("XY Trainer Kit (Wigglytuff)", "wigglytuff")).isFalse();
+		assertThat(OfficialPokemonSetCatalog.includes("SM Trainer Kit (Lycanroc)", "tk11")).isFalse();
+	}
 }

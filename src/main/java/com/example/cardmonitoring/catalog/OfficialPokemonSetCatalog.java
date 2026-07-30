@@ -21,6 +21,7 @@ import com.example.cardmonitoring.cardtrader.CardTraderExpansion;
 public final class OfficialPokemonSetCatalog {
 
 	private static final String RESOURCE_PATH = "catalog/tcg-collector-official-set-names.txt";
+	private static final int EXPECTED_CURATED_SET_COUNT = 336;
 	private static final Pattern NON_ALPHANUMERIC = Pattern.compile("[^a-z0-9]+", Pattern.CASE_INSENSITIVE);
 	private static final Set<String> OFFICIAL_SET_NAMES = loadOfficialSetNames();
 	private static final Set<String> CARDTRADER_CODE_ALIASES = Set.of(
@@ -46,9 +47,14 @@ public final class OfficialPokemonSetCatalog {
 	}
 
 	public static boolean includes(String expansionName, String expansionCode) {
-		return !EMPTY_CARDTRADER_EXPANSION_CODES.contains(normalizeCode(expansionCode))
+		return !isExcludedTrainerKit(expansionName)
+				&& !EMPTY_CARDTRADER_EXPANSION_CODES.contains(normalizeCode(expansionCode))
 				&& (OFFICIAL_SET_NAMES.contains(normalize(expansionName))
 				|| CARDTRADER_CODE_ALIASES.contains(normalizeCode(expansionCode)));
+	}
+
+	private static boolean isExcludedTrainerKit(String expansionName) {
+		return normalize(expansionName).contains("trainer kit");
 	}
 
 	static String normalize(String value) {
@@ -76,7 +82,7 @@ public final class OfficialPokemonSetCatalog {
 					names.add(normalized);
 				}
 			}
-			if (names.size() != 358) {
+			if (names.size() != EXPECTED_CURATED_SET_COUNT) {
 				throw new IllegalStateException("Expected 358 official Pokémon set names but found " + names.size());
 			}
 			return Set.copyOf(names);
