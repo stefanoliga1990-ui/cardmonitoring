@@ -28,12 +28,16 @@ public class CardImageService {
 
 	private final PokemonTcgClient pokemonTcgClient;
 	private final PokemonTcgSetImageService pokemonTcgSetImageService;
+	private final TcgCollectorReferenceCatalogService referenceCatalogService;
 	private final CardImageRepository cardImageRepository;
 
 	public CardImageService(PokemonTcgClient pokemonTcgClient,
-			PokemonTcgSetImageService pokemonTcgSetImageService, CardImageRepository cardImageRepository) {
+			PokemonTcgSetImageService pokemonTcgSetImageService,
+			TcgCollectorReferenceCatalogService referenceCatalogService,
+			CardImageRepository cardImageRepository) {
 		this.pokemonTcgClient = pokemonTcgClient;
 		this.pokemonTcgSetImageService = pokemonTcgSetImageService;
+		this.referenceCatalogService = referenceCatalogService;
 		this.cardImageRepository = cardImageRepository;
 	}
 
@@ -86,7 +90,16 @@ public class CardImageService {
 
 	/** Used by the maintenance backfill to repair cache rows created by older, number-only matching. */
 	public Optional<Boolean> isStoredImageCompatible(CatalogCard card, String externalCardId) {
-		return pokemonTcgSetImageService.isStoredImageCompatible(card, externalCardId);
+		Optional<TcgCollectorReferenceCatalogService.ReferenceCardMatch> referenceMatch = referenceCatalogService.findMatch(card);
+		String expectedNumber = referenceMatch
+				.map(TcgCollectorReferenceCatalogService.ReferenceCardMatch::normalizedCollectorNumber)
+				.filter(StringUtils::hasText)
+				.orElseGet(() -> CollectorNumberParser.fromVersion(card.cardVersion())
+						.map(CardImageService::normalizeNumber).orElse(null));
+		String expectedName = referenceMatch
+				.map(TcgCollectorReferenceCatalogService.ReferenceCardMatch::cardName)
+				.orElse(card.cardName());
+		return pokemonTcgSetImageService.isStoredImageCompatible(card, externalCardId, expectedName, expectedNumber);
 	}
 
 	private Optional<CardImage> resolveStoredImage(
@@ -95,6 +108,14 @@ public class CardImageService {
 			String collectorNumber,
 			StoredCardImage storedImage,
 			Instant now) {
+		if (!isStoredImageCompatible(card, storedImage.getExternalCardId()).orElse(true)) {
+			LOGGER.info(
+					"Removing incompatible cached card image before resolving through the reference catalog: id={}, blueprintId={}, expansionId={}, externalCardId={}",
+					storedImage.getId(), card.blueprintId(), card.expansionId(), storedImage.getExternalCardId());
+			cardImageRepository.delete(storedImage);
+			return resolveFromPokemonTcg(card, collectorNumber, null)
+					.map(image -> saveNewImage(card, cacheKey, image, now));
+		}
 		if (storedImage.isFresh(now, IMAGE_URL_MAXIMUM_AGE)) {
 			storedImage.recordUse(now);
 			cardImageRepository.save(storedImage);
@@ -146,11 +167,26 @@ public class CardImageService {
 			CatalogCard card,
 			String collectorNumber,
 			String externalCardId) {
+		Optional<TcgCollectorReferenceCatalogService.ReferenceCardMatch> referenceMatch = referenceCatalogService.findMatch(card);
+		String expectedName = referenceMatch
+				.map(TcgCollectorReferenceCatalogService.ReferenceCardMatch::cardName)
+				.orElse(card.cardName());
+		String expectedNumber = referenceMatch
+				.map(TcgCollectorReferenceCatalogService.ReferenceCardMatch::normalizedCollectorNumber)
+				.filter(StringUtils::hasText)
+				.orElse(collectorNumber);
+		if (referenceMatch.isPresent()) {
+			TcgCollectorReferenceCatalogService.ReferenceCardMatch match = referenceMatch.get();
+			LOGGER.info(
+					"Resolved CardTrader card through TCG Collector reference: blueprintId={}, referenceSet='{}', referenceName='{}', referenceNumber={}, confidence={}",
+					card.blueprintId(), match.referenceSetName(), match.cardName(), match.normalizedCollectorNumber(),
+					match.confidence());
+		}
 		if (StringUtils.hasText(externalCardId)) {
 			Optional<PokemonTcgCardCandidate> cardById = pokemonTcgClient.findCardById(externalCardId);
 			if (cardById.isPresent()
-					&& (collectorNumber == null || numberMatches(collectorNumber, cardById.get().number()))
-					&& PokemonTcgSetImageService.namesCompatible(card.cardName(), cardById.get().name())) {
+					&& (expectedNumber == null || numberMatches(expectedNumber, cardById.get().number()))
+					&& PokemonTcgSetImageService.namesCompatible(expectedName, cardById.get().name())) {
 				PokemonTcgCardCandidate candidate = cardById.get();
 				LOGGER.info(
 						"Selected Pokemon TCG image by external id: blueprintId={}, candidateId={}, candidateName='{}', candidateNumber={}, candidateSet='{}', hasSmallImage={}, hasLargeImage={}",
@@ -160,26 +196,28 @@ public class CardImageService {
 			}
 			LOGGER.info(
 					"Pokemon TCG external id refresh did not return a compatible image, falling back to search: blueprintId={}, externalCardId={}, collectorNumber={}",
-					card.blueprintId(), externalCardId, collectorNumber);
+					card.blueprintId(), externalCardId, expectedNumber);
 		}
-		if (collectorNumber != null) {
-			List<PokemonTcgCardCandidate> setCandidates = pokemonTcgSetImageService.findCandidates(card, collectorNumber);
+		if (expectedNumber != null) {
+			List<PokemonTcgCardCandidate> setCandidates = pokemonTcgSetImageService.findCandidates(card, expectedNumber);
 			if (setCandidates.size() == 1
-					&& PokemonTcgSetImageService.namesCompatible(card.cardName(), setCandidates.get(0).name())) {
+					&& PokemonTcgSetImageService.namesCompatible(expectedName, setCandidates.get(0).name())) {
 				PokemonTcgCardCandidate candidate = setCandidates.get(0);
 				LOGGER.info("Selected Pokemon TCG image by mapped set and number: blueprintId={}, candidateId={}, set='{}', number={}",
 						card.blueprintId(), candidate.id(), candidate.setName(), candidate.number());
 				return Optional.of(toCardImage(candidate));
 			}
 			if (setCandidates.size() > 1) {
-				Optional<PokemonTcgCardCandidate> selectedSetCandidate = uniqueNameMatch(card, setCandidates);
+				Optional<PokemonTcgCardCandidate> selectedSetCandidate = uniqueNameMatch(expectedName, setCandidates);
 				if (selectedSetCandidate.isPresent()) return Optional.of(toCardImage(selectedSetCandidate.get()));
 				LOGGER.info("Mapped Pokemon TCG set has ambiguous collector number; falling back to name search: blueprintId={}, candidates={}",
 						card.blueprintId(), setCandidates.size());
 			}
 		}
 
-		List<PokemonTcgCardCandidate> sameSetNameCandidates = pokemonTcgSetImageService.findCandidatesByName(card);
+		List<PokemonTcgCardCandidate> sameSetNameCandidates = referenceMatch.isPresent()
+				? pokemonTcgSetImageService.findCandidatesByName(card, expectedName)
+				: pokemonTcgSetImageService.findCandidatesByName(card);
 		Optional<PokemonTcgCardCandidate> sameSetNameCandidate = uniqueImageCandidate(sameSetNameCandidates);
 		if (sameSetNameCandidate.isPresent()) {
 			PokemonTcgCardCandidate candidate = sameSetNameCandidate.get();
@@ -188,7 +226,7 @@ public class CardImageService {
 			return Optional.of(toCardImage(candidate));
 		}
 
-		if (collectorNumber != null) {
+		if (referenceMatch.isEmpty() && collectorNumber != null) {
 			String query = query(card.cardName(), collectorNumber);
 			LOGGER.info("Searching Pokemon TCG image candidates: blueprintId={}, collectorNumber={}, query={}",
 					card.blueprintId(), collectorNumber, query);
@@ -219,8 +257,8 @@ public class CardImageService {
 			}
 		}
 
-		Optional<PokemonTcgCardCandidate> globalNameCandidate = pokemonTcgClient.searchSingleCard(nameQuery(card.cardName()))
-				.filter(candidate -> PokemonTcgSetImageService.namesCompatible(card.cardName(), candidate.name()))
+		Optional<PokemonTcgCardCandidate> globalNameCandidate = pokemonTcgClient.searchSingleCard(nameQuery(expectedName))
+				.filter(candidate -> PokemonTcgSetImageService.namesCompatible(expectedName, candidate.name()))
 				.filter(CardImageService::hasImage);
 		if (globalNameCandidate.isPresent()) {
 			PokemonTcgCardCandidate candidate = globalNameCandidate.get();
@@ -257,9 +295,9 @@ public class CardImageService {
 	}
 
 	private static Optional<PokemonTcgCardCandidate> uniqueNameMatch(
-			CatalogCard card, List<PokemonTcgCardCandidate> candidates) {
+			String expectedName, List<PokemonTcgCardCandidate> candidates) {
 		List<PokemonTcgCardCandidate> matching = candidates.stream()
-				.filter(candidate -> PokemonTcgSetImageService.namesCompatible(card.cardName(), candidate.name()))
+				.filter(candidate -> PokemonTcgSetImageService.namesCompatible(expectedName, candidate.name()))
 				.toList();
 		return matching.size() == 1 ? Optional.of(matching.get(0)) : Optional.empty();
 	}

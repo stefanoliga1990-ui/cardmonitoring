@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import com.example.cardmonitoring.catalog.CatalogBlueprint;
 import com.example.cardmonitoring.catalog.CatalogExpansion;
 import com.example.cardmonitoring.catalog.CatalogService;
+import com.example.cardmonitoring.catalog.CollectorNumberParser;
 import com.example.cardmonitoring.pokemontcg.CardImageRepository;
 import com.example.cardmonitoring.pokemontcg.StoredCardImage;
 
@@ -53,6 +54,15 @@ public class ImageCoverageAuditService {
 	public ImageCoverageAuditStatusResponse status() {
 		synchronized (lock) {
 			return status.toResponse();
+		}
+	}
+
+	public ImageCoverageExportResponse export() {
+		synchronized (lock) {
+			if (status.running) {
+				throw new IllegalStateException("Image coverage audit is still running");
+			}
+			return new ImageCoverageExportResponse(List.copyOf(status.missingImageSets));
 		}
 	}
 
@@ -102,14 +112,20 @@ public class ImageCoverageAuditService {
 				blueprintsWithImage.add(image.getBlueprintId());
 			}
 		}
-		int imagesAvailable = (int) blueprints.stream()
-				.map(CatalogBlueprint::id)
-				.filter(blueprintsWithImage::contains)
-				.count();
-		int missingImages = blueprints.size() - imagesAvailable;
+		List<CatalogBlueprint> missingBlueprints = blueprints.stream()
+				.filter(blueprint -> !blueprintsWithImage.contains(blueprint.id()))
+				.toList();
+		int imagesAvailable = blueprints.size() - missingBlueprints.size();
+		int missingImages = missingBlueprints.size();
 		if (missingImages > 0) {
 			update(snapshot -> snapshot.incompleteExpansions.add(new IncompleteImageExpansionResponse(
 					expansion.id(), expansion.name(), expansion.code(), blueprints.size(), imagesAvailable, missingImages)));
+			update(snapshot -> snapshot.missingImageSets.add(new ImageCoverageExportSetResponse(
+					new ImageCoverageExportSetIdentity(expansion.name(), expansion.code()),
+					missingBlueprints.stream()
+							.map(blueprint -> new ImageCoverageExportCardResponse(blueprint.name(),
+									CollectorNumberParser.fromVersion(blueprint.version()).orElse(null)))
+							.toList())));
 		}
 	}
 
@@ -134,6 +150,7 @@ public class ImageCoverageAuditService {
 		private int failedExpansions;
 		private String lastError;
 		private final List<IncompleteImageExpansionResponse> incompleteExpansions = new ArrayList<>();
+		private final List<ImageCoverageExportSetResponse> missingImageSets = new ArrayList<>();
 
 		private static MutableStatus idle() {
 			return new MutableStatus();

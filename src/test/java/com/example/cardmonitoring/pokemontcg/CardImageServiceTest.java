@@ -28,6 +28,9 @@ class CardImageServiceTest {
 	@Mock
 	private PokemonTcgSetImageService pokemonTcgSetImageService;
 
+	@Mock
+	private TcgCollectorReferenceCatalogService referenceCatalogService;
+
 	@Test
 	void retriesWithHyphenatedExNameWhenTheFirstSearchHasNoCandidates() {
 		CatalogCard card = new CatalogCard(84, "Sceptile EX", "Ultra Rare | 84/98", 1573, "Ancient Origins", "aor");
@@ -43,7 +46,7 @@ class CardImageServiceTest {
 		when(cardImageRepository.saveAndFlush(any(StoredCardImage.class)))
 				.thenAnswer(invocation -> invocation.getArgument(0));
 
-		Optional<CardImage> image = new CardImageService(pokemonTcgClient, pokemonTcgSetImageService, cardImageRepository)
+		Optional<CardImage> image = new CardImageService(pokemonTcgClient, pokemonTcgSetImageService, referenceCatalogService, cardImageRepository)
 				.resolve(card);
 
 		assertThat(image).isPresent();
@@ -62,7 +65,7 @@ class CardImageServiceTest {
 		when(pokemonTcgSetImageService.findCandidates(card, "96")).thenReturn(List.of(candidate));
 		when(cardImageRepository.saveAndFlush(any(StoredCardImage.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-		Optional<CardImage> image = new CardImageService(pokemonTcgClient, pokemonTcgSetImageService, cardImageRepository)
+		Optional<CardImage> image = new CardImageService(pokemonTcgClient, pokemonTcgSetImageService, referenceCatalogService, cardImageRepository)
 				.resolve(card);
 
 		assertThat(image).isPresent();
@@ -80,7 +83,7 @@ class CardImageServiceTest {
 		when(pokemonTcgSetImageService.findCandidatesByName(card)).thenReturn(List.of(candidate));
 		when(cardImageRepository.saveAndFlush(any(StoredCardImage.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-		Optional<CardImage> image = new CardImageService(pokemonTcgClient, pokemonTcgSetImageService, cardImageRepository)
+		Optional<CardImage> image = new CardImageService(pokemonTcgClient, pokemonTcgSetImageService, referenceCatalogService, cardImageRepository)
 				.resolve(card);
 
 		assertThat(image).isPresent();
@@ -100,7 +103,7 @@ class CardImageServiceTest {
 		when(pokemonTcgClient.searchSingleCard("name:\"Uncommon Example\"")).thenReturn(Optional.of(candidate));
 		when(cardImageRepository.saveAndFlush(any(StoredCardImage.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-		Optional<CardImage> image = new CardImageService(pokemonTcgClient, pokemonTcgSetImageService, cardImageRepository)
+		Optional<CardImage> image = new CardImageService(pokemonTcgClient, pokemonTcgSetImageService, referenceCatalogService, cardImageRepository)
 				.resolve(card);
 
 		assertThat(image).isPresent();
@@ -122,10 +125,34 @@ class CardImageServiceTest {
 		when(pokemonTcgSetImageService.findCandidatesByName(card)).thenReturn(List.of(correctNameCandidate));
 		when(cardImageRepository.saveAndFlush(any(StoredCardImage.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-		Optional<CardImage> image = new CardImageService(pokemonTcgClient, pokemonTcgSetImageService, cardImageRepository)
+		Optional<CardImage> image = new CardImageService(pokemonTcgClient, pokemonTcgSetImageService, referenceCatalogService, cardImageRepository)
 				.resolve(card);
 
 		assertThat(image).isPresent();
 		assertThat(image.get().externalCardId()).isEqualTo("asc-256");
+	}
+
+	@Test
+	void usesReferenceCatalogNumberWhenCardTraderNumberPointsToAnotherCard() {
+		CatalogCard card = new CatalogCard(255, "Boss's Orders - Corbeau", "Ultra Rare | 255/217", 3000,
+				"Ascended Heroes", "asc");
+		PokemonTcgCardCandidate candidate = new PokemonTcgCardCandidate("asc-256", "Boss's Orders", "256", "asc",
+				"Ascended Heroes", null, 217, 217, null, "https://images.test/right-s.png", "https://images.test/right-l.png");
+		TcgCollectorReferenceCatalogService.ReferenceCardMatch reference =
+				new TcgCollectorReferenceCatalogService.ReferenceCardMatch(
+						"Ascended Heroes", "Boss's Orders", "256",
+						TcgCollectorReferenceCatalogService.MatchConfidence.UNIQUE_NAME);
+		when(cardImageRepository.findByExpansionIdAndBlueprintIdAndCollectorNumberAndImageSource(
+				3000, 255, "255", "POKEMON_TCG_API")).thenReturn(Optional.empty());
+		when(referenceCatalogService.findMatch(card)).thenReturn(Optional.of(reference));
+		when(pokemonTcgSetImageService.findCandidates(card, "256")).thenReturn(List.of(candidate));
+		when(cardImageRepository.saveAndFlush(any(StoredCardImage.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		Optional<CardImage> image = new CardImageService(
+				pokemonTcgClient, pokemonTcgSetImageService, referenceCatalogService, cardImageRepository).resolve(card);
+
+		assertThat(image).isPresent();
+		assertThat(image.get().externalCardId()).isEqualTo("asc-256");
+		verify(pokemonTcgSetImageService).findCandidates(card, "256");
 	}
 }

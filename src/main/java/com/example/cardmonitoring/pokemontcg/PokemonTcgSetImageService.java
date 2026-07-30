@@ -37,8 +37,13 @@ public class PokemonTcgSetImageService {
 
 	/** Uses the already cached mapped set, so this fallback never creates one request per card. */
 	public List<PokemonTcgCardCandidate> findCandidatesByName(CatalogCard card) {
+		return findCandidatesByName(card, card.cardName());
+	}
+
+	/** Uses a reference-catalog name while keeping the CardTrader expansion mapping. */
+	public List<PokemonTcgCardCandidate> findCandidatesByName(CatalogCard card, String cardName) {
 		return resolveSetId(card).map(this::cardsForSet).orElseGet(List::of).stream()
-				.filter(candidate -> namesCompatible(card.cardName(), candidate.name()))
+				.filter(candidate -> namesCompatible(cardName, candidate.name()))
 				.toList();
 	}
 
@@ -47,11 +52,19 @@ public class PokemonTcgSetImageService {
 	 * result means that the set mapping cannot prove the cache entry is wrong.
 	 */
 	public Optional<Boolean> isStoredImageCompatible(CatalogCard card, String externalCardId) {
+		return isStoredImageCompatible(card, externalCardId, card.cardName(), null);
+	}
+
+	/** Validates the cached API card against a reference identity when one is available. */
+	public Optional<Boolean> isStoredImageCompatible(
+			CatalogCard card, String externalCardId, String expectedName, String expectedCollectorNumber) {
 		if (externalCardId == null || externalCardId.isBlank()) return Optional.empty();
 		return resolveSetId(card)
 				.map(this::cardsForSet)
 				.flatMap(cards -> cards.stream().filter(candidate -> externalCardId.equals(candidate.id())).findFirst())
-				.map(candidate -> namesCompatible(card.cardName(), candidate.name()));
+				.map(candidate -> (expectedCollectorNumber == null
+						|| normalizeNumber(expectedCollectorNumber).equals(normalizeNumber(candidate.number())))
+						&& namesCompatible(expectedName, candidate.name()));
 	}
 
 	private List<PokemonTcgCardCandidate> cardsForSet(String setId) {

@@ -122,7 +122,9 @@
     const imageCoverageState = {
         loading: false,
         expanded: false,
-        pollTimer: null
+        pollTimer: null,
+        downloadAfterCompletion: false,
+        exporting: false
     };
 
     const collectionsState = {
@@ -2421,6 +2423,7 @@
             return;
         }
         imageCoverageState.loading = true;
+		imageCoverageState.downloadAfterCompletion = true;
         elements.imageCoverageStart.disabled = true;
         setImageCoveragePanelExpanded(true);
         setImageCoverageStatus("Avvio della verifica dei set in corso…", "info");
@@ -2476,7 +2479,40 @@
                 : `Verifica completata: ${formatInteger(incomplete)} set hanno almeno un URL immagine mancante.${failures}${lastError}`,
             failed > 0 ? "error" : "info"
         );
+		if (imageCoverageState.downloadAfterCompletion && !imageCoverageState.exporting) {
+			downloadImageCoverageExport();
+		}
     }
+
+	async function downloadImageCoverageExport() {
+		imageCoverageState.exporting = true;
+		imageCoverageState.downloadAfterCompletion = false;
+		try {
+			const response = await fetch("/api/admin/image-coverage/export", {
+				credentials: "same-origin",
+				headers: { "Accept": "application/json" }
+			});
+			if (!response.ok) {
+				throw new Error(`Export non disponibile (HTTP ${response.status})`);
+			}
+			const blob = await response.blob();
+			const objectUrl = URL.createObjectURL(blob);
+			const link = document.createElement("a");
+			link.href = objectUrl;
+			link.download = "card-images-missing.json";
+			document.body.append(link);
+			link.click();
+			link.remove();
+			URL.revokeObjectURL(objectUrl);
+			setImageCoverageStatus("Verifica completata e file JSON delle carte mancanti scaricato.", "info");
+		}
+		catch (error) {
+			setImageCoverageStatus(errorMessage(error, "Verifica completata, ma download JSON non riuscito."), "error");
+		}
+		finally {
+			imageCoverageState.exporting = false;
+		}
+	}
 
     function renderImageCoverageResults(results) {
         elements.imageCoverageResults.replaceChildren();
