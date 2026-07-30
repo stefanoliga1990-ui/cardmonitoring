@@ -38,8 +38,20 @@ public class PokemonTcgSetImageService {
 	/** Uses the already cached mapped set, so this fallback never creates one request per card. */
 	public List<PokemonTcgCardCandidate> findCandidatesByName(CatalogCard card) {
 		return resolveSetId(card).map(this::cardsForSet).orElseGet(List::of).stream()
-				.filter(candidate -> equivalentCardNames(card.cardName(), candidate.name()))
+				.filter(candidate -> namesCompatible(card.cardName(), candidate.name()))
 				.toList();
+	}
+
+	/**
+	 * Checks a cached API card against its mapped set without making a request per card. An empty
+	 * result means that the set mapping cannot prove the cache entry is wrong.
+	 */
+	public Optional<Boolean> isStoredImageCompatible(CatalogCard card, String externalCardId) {
+		if (externalCardId == null || externalCardId.isBlank()) return Optional.empty();
+		return resolveSetId(card)
+				.map(this::cardsForSet)
+				.flatMap(cards -> cards.stream().filter(candidate -> externalCardId.equals(candidate.id())).findFirst())
+				.map(candidate -> namesCompatible(card.cardName(), candidate.name()));
 	}
 
 	private List<PokemonTcgCardCandidate> cardsForSet(String setId) {
@@ -90,8 +102,14 @@ public class PokemonTcgSetImageService {
 	private static String normalize(String value) {
 		return value == null ? "" : value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "");
 	}
-	private static boolean equivalentCardNames(String left, String right) {
-		return canonicalCardName(left).equals(canonicalCardName(right));
+	public static boolean namesCompatible(String left, String right) {
+		return canonicalCardName(left).equals(canonicalCardName(right))
+				|| primaryCardName(left).equals(canonicalCardName(right))
+				|| canonicalCardName(left).equals(primaryCardName(right));
+	}
+	private static String primaryCardName(String value) {
+		if (value == null) return "";
+		return canonicalCardName(value.replaceFirst("\\s+-\\s+.*$", ""));
 	}
 	private static String canonicalCardName(String value) {
 		String normalized = value == null ? "" : value.toLowerCase(Locale.ROOT)

@@ -84,6 +84,11 @@ public class CardImageService {
 		return Optional.of(saveNewImage(card, normalizedCollectorNumber, image, now));
 	}
 
+	/** Used by the maintenance backfill to repair cache rows created by older, number-only matching. */
+	public Optional<Boolean> isStoredImageCompatible(CatalogCard card, String externalCardId) {
+		return pokemonTcgSetImageService.isStoredImageCompatible(card, externalCardId);
+	}
+
 	private Optional<CardImage> resolveStoredImage(
 			CatalogCard card,
 			String cacheKey,
@@ -143,7 +148,9 @@ public class CardImageService {
 			String externalCardId) {
 		if (StringUtils.hasText(externalCardId)) {
 			Optional<PokemonTcgCardCandidate> cardById = pokemonTcgClient.findCardById(externalCardId);
-			if (cardById.isPresent() && (collectorNumber == null || numberMatches(collectorNumber, cardById.get().number()))) {
+			if (cardById.isPresent()
+					&& (collectorNumber == null || numberMatches(collectorNumber, cardById.get().number()))
+					&& PokemonTcgSetImageService.namesCompatible(card.cardName(), cardById.get().name())) {
 				PokemonTcgCardCandidate candidate = cardById.get();
 				LOGGER.info(
 						"Selected Pokemon TCG image by external id: blueprintId={}, candidateId={}, candidateName='{}', candidateNumber={}, candidateSet='{}', hasSmallImage={}, hasLargeImage={}",
@@ -157,7 +164,8 @@ public class CardImageService {
 		}
 		if (collectorNumber != null) {
 			List<PokemonTcgCardCandidate> setCandidates = pokemonTcgSetImageService.findCandidates(card, collectorNumber);
-			if (setCandidates.size() == 1) {
+			if (setCandidates.size() == 1
+					&& PokemonTcgSetImageService.namesCompatible(card.cardName(), setCandidates.get(0).name())) {
 				PokemonTcgCardCandidate candidate = setCandidates.get(0);
 				LOGGER.info("Selected Pokemon TCG image by mapped set and number: blueprintId={}, candidateId={}, set='{}', number={}",
 						card.blueprintId(), candidate.id(), candidate.setName(), candidate.number());
@@ -198,6 +206,7 @@ public class CardImageService {
 					candidates.size(), card.blueprintId(), collectorNumber);
 			Optional<PokemonTcgCardCandidate> selected = candidates.stream()
 					.filter(candidate -> numberMatches(collectorNumber, candidate.number()))
+					.filter(candidate -> PokemonTcgSetImageService.namesCompatible(card.cardName(), candidate.name()))
 					.min(Comparator
 							.comparingInt((PokemonTcgCardCandidate candidate) -> matchScore(card, collectorNumber, candidate))
 							.reversed()
@@ -211,7 +220,7 @@ public class CardImageService {
 		}
 
 		Optional<PokemonTcgCardCandidate> globalNameCandidate = pokemonTcgClient.searchSingleCard(nameQuery(card.cardName()))
-				.filter(candidate -> equivalentCardNames(card.cardName(), candidate.name()))
+				.filter(candidate -> PokemonTcgSetImageService.namesCompatible(card.cardName(), candidate.name()))
 				.filter(CardImageService::hasImage);
 		if (globalNameCandidate.isPresent()) {
 			PokemonTcgCardCandidate candidate = globalNameCandidate.get();
@@ -250,7 +259,7 @@ public class CardImageService {
 	private static Optional<PokemonTcgCardCandidate> uniqueNameMatch(
 			CatalogCard card, List<PokemonTcgCardCandidate> candidates) {
 		List<PokemonTcgCardCandidate> matching = candidates.stream()
-				.filter(candidate -> equivalentCardNames(card.cardName(), candidate.name()))
+				.filter(candidate -> PokemonTcgSetImageService.namesCompatible(card.cardName(), candidate.name()))
 				.toList();
 		return matching.size() == 1 ? Optional.of(matching.get(0)) : Optional.empty();
 	}
@@ -324,18 +333,6 @@ public class CardImageService {
 
 	private static boolean equalsNormalized(String left, String right) {
 		return normalizeText(left).equals(normalizeText(right));
-	}
-
-	private static boolean equivalentCardNames(String left, String right) {
-		return canonicalCardName(left).equals(canonicalCardName(right));
-	}
-
-	private static String canonicalCardName(String value) {
-		String normalized = normalizeText(value);
-		if (normalized.startsWith("m ") && normalized.endsWith(" ex")) {
-			normalized = normalized.substring(2);
-		}
-		return normalized.replaceAll(" ex$", "").trim();
 	}
 
 	private static boolean containsNormalized(String container, String value) {

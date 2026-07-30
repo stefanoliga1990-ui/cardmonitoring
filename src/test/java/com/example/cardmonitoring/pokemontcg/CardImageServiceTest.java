@@ -107,4 +107,25 @@ class CardImageServiceTest {
 		assertThat(image.get().externalCardId()).isEqualTo("sm1-168");
 		verify(pokemonTcgClient).searchSingleCard("name:\"Uncommon Example\"");
 	}
+
+	@Test
+	void doesNotAcceptMappedSetNumberWhenTheNameDoesNotMatch() {
+		CatalogCard card = new CatalogCard(255, "Boss's Orders - Corbeau", "Ultra Rare | 255/217", 3000,
+				"Ascended Heroes", "asc");
+		PokemonTcgCardCandidate wrongNumberCandidate = new PokemonTcgCardCandidate("asc-255", "Black Belt's Training",
+				"255", "asc", "Ascended Heroes", null, 217, 217, null, "https://images.test/wrong-s.png", "https://images.test/wrong-l.png");
+		PokemonTcgCardCandidate correctNameCandidate = new PokemonTcgCardCandidate("asc-256", "Boss's Orders",
+				"256", "asc", "Ascended Heroes", null, 217, 217, null, "https://images.test/right-s.png", "https://images.test/right-l.png");
+		when(cardImageRepository.findByExpansionIdAndBlueprintIdAndCollectorNumberAndImageSource(
+				3000, 255, "255", "POKEMON_TCG_API")).thenReturn(Optional.empty());
+		when(pokemonTcgSetImageService.findCandidates(card, "255")).thenReturn(List.of(wrongNumberCandidate));
+		when(pokemonTcgSetImageService.findCandidatesByName(card)).thenReturn(List.of(correctNameCandidate));
+		when(cardImageRepository.saveAndFlush(any(StoredCardImage.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		Optional<CardImage> image = new CardImageService(pokemonTcgClient, pokemonTcgSetImageService, cardImageRepository)
+				.resolve(card);
+
+		assertThat(image).isPresent();
+		assertThat(image.get().externalCardId()).isEqualTo("asc-256");
+	}
 }

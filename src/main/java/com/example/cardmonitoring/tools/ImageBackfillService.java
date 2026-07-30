@@ -2,10 +2,9 @@ package com.example.cardmonitoring.tools;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 import org.slf4j.Logger;
@@ -177,7 +176,7 @@ public class ImageBackfillService {
 			return;
 		}
 
-		Set<ImageKey> existingImages = existingImageKeys(expansion.id());
+		Map<ImageKey, StoredCardImage> existingImages = existingImageKeys(expansion.id());
 		update(snapshot -> {
 			snapshot.totalBlueprints += blueprints.size();
 			snapshot.currentExpansionTotalBlueprints = blueprints.size();
@@ -201,7 +200,7 @@ public class ImageBackfillService {
 	private void processBlueprint(
 			CatalogExpansion expansion,
 			CatalogBlueprint blueprint,
-			Set<ImageKey> existingImages) throws InterruptedException {
+			Map<ImageKey, StoredCardImage> existingImages) throws InterruptedException {
 		CatalogCard card = new CatalogCard(
 				blueprint.id(),
 				blueprint.name(),
@@ -215,14 +214,23 @@ public class ImageBackfillService {
 				.map(ImageBackfillService::normalizeNumber)
 				.orElse("__NO_COLLECTOR_NUMBER__");
 		ImageKey imageKey = new ImageKey(blueprint.id(), imageCacheKey);
-		if (existingImages.contains(imageKey)) {
-			update(this::recordProcessedBlueprint);
-			return;
+		StoredCardImage existingImage = existingImages.get(imageKey);
+		if (existingImage != null) {
+			if (!cardImageService.isStoredImageCompatible(card, existingImage.getExternalCardId()).orElse(true)) {
+				LOGGER.info("Removing incompatible cached card image before re-resolution: expansionId={}, blueprintId={}, externalCardId={}",
+						expansion.id(), blueprint.id(), existingImage.getExternalCardId());
+				cardImageRepository.delete(existingImage);
+				existingImages.remove(imageKey);
+			}
+			else {
+				update(this::recordProcessedBlueprint);
+				return;
+			}
 		}
 
 		ResolutionResult result = resolveWithAttempts(card);
 		if (result.found()) {
-			existingImages.add(imageKey);
+			existingImages.put(imageKey, null);
 			update(snapshot -> {
 				snapshot.savedImages++;
 				snapshot.currentExpansionSavedImages++;
@@ -279,12 +287,12 @@ public class ImageBackfillService {
 		return lastError == null ? ResolutionResult.notFound() : ResolutionResult.error(lastError);
 	}
 
-	private Set<ImageKey> existingImageKeys(long expansionId) {
+	private Map<ImageKey, StoredCardImage> existingImageKeys(long expansionId) {
 		List<StoredCardImage> storedImages = cardImageRepository.findByExpansionIdAndImageSource(expansionId, SOURCE);
-		Set<ImageKey> keys = new HashSet<>();
+		Map<ImageKey, StoredCardImage> keys = new java.util.HashMap<>();
 		for (StoredCardImage storedImage : storedImages) {
 			if (storedImage.hasImage()) {
-				keys.add(new ImageKey(storedImage.getBlueprintId(), normalizeNumber(storedImage.getCollectorNumber())));
+				keys.put(new ImageKey(storedImage.getBlueprintId(), normalizeNumber(storedImage.getCollectorNumber())), storedImage);
 			}
 		}
 		return keys;
