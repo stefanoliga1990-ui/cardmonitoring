@@ -8,6 +8,7 @@ import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -58,18 +59,31 @@ public class TcgReferencePokemonSetMappingService {
 				? votes.entrySet().stream().filter(entry -> entry.getValue() >= 2).map(Map.Entry::getKey).findFirst()
 				: Optional.empty();
 		if (winner.isPresent()) {
-			mappingRepository.save(TcgReferencePokemonSetMapping.mapped(
-						card.expansionId(), match.referenceSetId(), winner.get(), Instant.now()));
+			persist(TcgReferencePokemonSetMapping.mapped(
+					card.expansionId(), match.referenceSetId(), winner.get(), Instant.now()), card, match);
 			LOGGER.info("Mapped TCG Collector set to Pokemon TCG API set: expansionId={}, referenceSet='{}', pokemonTcgSetId={}, probes={}",
 						card.expansionId(), match.referenceSetName(), winner.get(), probes);
 			return winner;
 		}
 
-		mappingRepository.save(TcgReferencePokemonSetMapping.unmappable(
-				card.expansionId(), match.referenceSetId(), Instant.now()));
+		persist(TcgReferencePokemonSetMapping.unmappable(
+				card.expansionId(), match.referenceSetId(), Instant.now()), card, match);
 		LOGGER.info("No reliable Pokemon TCG API set mapping for TCG Collector set: expansionId={}, referenceSet='{}', probes={}, votes={}",
 				card.expansionId(), match.referenceSetName(), probes, votes);
 		return Optional.empty();
+	}
+
+	private void persist(
+			TcgReferencePokemonSetMapping mapping,
+			CatalogCard card,
+			TcgCollectorReferenceCatalogService.ReferenceCardMatch match) {
+		try {
+			mappingRepository.save(mapping);
+		} catch (DataAccessException exception) {
+			LOGGER.warn("Could not cache TCG Collector to Pokemon TCG API set mapping; continuing without the cache: expansionId={}, referenceSet='{}', mapped={}, errorType={}",
+					card.expansionId(), match.referenceSetName(), mapping.isMapped(),
+					exception.getClass().getSimpleName());
+		}
 	}
 
 	private static String query(String cardName, String collectorNumber) {

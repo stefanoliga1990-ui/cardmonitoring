@@ -5,6 +5,8 @@ import java.time.Instant;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
 @Entity
@@ -68,5 +70,18 @@ public class TcgReferencePokemonSetMapping {
 
 	public String getPokemonTcgSetId() {
 		return pokemonTcgSetId;
+	}
+
+	@PrePersist
+	@PreUpdate
+	private void validateState() {
+		boolean mapped = TcgReferencePokemonSetMappingStatus.MAPPED.name().equals(mappingStatus);
+		boolean unmappable = TcgReferencePokemonSetMappingStatus.UNMAPPABLE.name().equals(mappingStatus);
+		if (!mapped && !unmappable) {
+			throw new IllegalStateException("Unsupported TCG reference Pokemon set mapping status");
+		}
+		if (mapped != (pokemonTcgSetId != null && !pokemonTcgSetId.isBlank())) {
+			throw new IllegalStateException("Inconsistent TCG reference Pokemon set mapping state");
+		}
 	}
 }
