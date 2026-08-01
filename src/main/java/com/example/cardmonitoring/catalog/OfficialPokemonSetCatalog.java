@@ -32,6 +32,12 @@ public final class OfficialPokemonSetCatalog {
 			"xytkp", "xyths", "wcd2004", "wcd2005", "wcd2006", "wcd2007", "wcd2008", "wcd2009",
 			"wcd2010", "wcd2011", "wcd2012", "wcd2013", "wcd2014", "wcd2015", "wcd2016", "wcd2017",
 			"wcd2018", "wcd2019", "wcd2022", "wcd2023", "wcd2024", "wcd2025");
+	/** Curated exclusions for deck products, special promos and World Championship decks. */
+	private static final Set<String> EXCLUDED_CARDTRADER_EXPANSION_CODES = Set.of(
+			"ba-20", "nbsp", "playprizep", "clb", "clc", "clv", "swshbs",
+			"wcd2004", "wcd2005", "wcd2006", "wcd2007", "wcd2008", "wcd2009",
+			"wcd2010", "wcd2011", "wcd2012", "wcd2013", "wcd2014", "wcd2015",
+			"wcd2016", "wcd2017", "wcd2018", "wcd2019", "wcd2022", "wcd2023");
 	/**
 	 * CardTrader expansions that are present in its catalogue but currently do
 	 * not contain any Pokemon Singles blueprints. They are intentionally not
@@ -47,14 +53,26 @@ public final class OfficialPokemonSetCatalog {
 	}
 
 	public static boolean includes(String expansionName, String expansionCode) {
-		return !isExcludedTrainerKit(expansionName)
+		return !isExcludedCuratedSet(expansionName, expansionCode)
 				&& !EMPTY_CARDTRADER_EXPANSION_CODES.contains(normalizeCode(expansionCode))
 				&& (OFFICIAL_SET_NAMES.contains(normalize(expansionName))
 				|| CARDTRADER_CODE_ALIASES.contains(normalizeCode(expansionCode)));
 	}
 
-	private static boolean isExcludedTrainerKit(String expansionName) {
-		return normalize(expansionName).contains("trainer kit");
+	private static boolean isExcludedCuratedSet(String expansionName, String expansionCode) {
+		String normalizedName = normalize(expansionName);
+		return normalizedName.contains("trainer kit")
+				|| EXCLUDED_CARDTRADER_EXPANSION_CODES.contains(normalizeCode(expansionCode))
+				|| normalizedName.equals("battle academy 2020")
+				|| normalizedName.equals("mcdonald s collection 2018 french")
+				|| normalizedName.equals("nintendo black star promos")
+				|| normalizedName.equals("nintendo promos")
+				|| normalizedName.equals("play pokemon prize pack series")
+				|| normalizedName.equals("pokemon tcg classic blastoise suicune ex deck")
+				|| normalizedName.equals("pokemon tcg classic charizard ho oh ex deck")
+				|| normalizedName.equals("pokemon tcg classic venusaur lugia ex deck")
+				|| normalizedName.equals("swsh black star promos")
+				|| normalizedName.matches("world championship decks (200[4-9]|201[0-9]|202[2-3])");
 	}
 
 	static String normalize(String value) {
