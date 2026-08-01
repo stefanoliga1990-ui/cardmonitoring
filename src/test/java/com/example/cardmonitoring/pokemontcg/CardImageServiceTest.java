@@ -73,6 +73,29 @@ class CardImageServiceTest {
 	}
 
 	@Test
+	void usesAFormattedNameFallbackOnlyAfterTheMappedSetNameLookupFails() {
+		CatalogCard card = new CatalogCard(17, "Bubbly [W] Energy", "Special Energy | 17/100", 2001,
+				"Example Set", "example");
+		PokemonTcgCardCandidate candidate = new PokemonTcgCardCandidate("example-17", "Bubbly Water Energy", "17",
+				"example", "Example Set", null, 100, 100, null, "https://images.test/s.png", "https://images.test/l.png");
+		when(cardImageRepository.findByExpansionIdAndBlueprintIdAndCollectorNumberAndImageSource(
+				2001, 17, "17", "POKEMON_TCG_API")).thenReturn(Optional.empty());
+		when(pokemonTcgSetImageService.findCandidates(card, "17")).thenReturn(List.of());
+		when(pokemonTcgSetImageService.findCandidatesByName(card)).thenReturn(List.of());
+		when(pokemonTcgSetImageService.findCandidatesByName(card, "Bubbly Water Energy"))
+				.thenReturn(List.of(candidate));
+		when(cardImageRepository.saveAndFlush(any(StoredCardImage.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		Optional<CardImage> image = new CardImageService(
+				pokemonTcgClient, pokemonTcgSetImageService, referenceCatalogService, cardImageRepository).resolve(card);
+
+		assertThat(image).isPresent();
+		assertThat(image.get().externalCardId()).isEqualTo("example-17");
+		verify(pokemonTcgSetImageService).findCandidatesByName(card);
+		verify(pokemonTcgSetImageService).findCandidatesByName(card, "Bubbly Water Energy");
+	}
+
+	@Test
 	void usesUniqueNameInsideMappedSetWhenVersionHasNoReliableCollectorNumber() {
 		CatalogCard card = new CatalogCard(2017, "Fire Energy", "2017 | Charizard Stamp 2", 2000,
 				"Battle Academy 2020", "ba-20");
